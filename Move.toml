@@ -1,0 +1,16 @@
+[package]
+name = "perpetual"
+version = "0.0.1"
+authors = []
+
+[addresses]
+perpetual = "0x123"
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dev-dependencies]
