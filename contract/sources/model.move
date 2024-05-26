@@ -37,9 +37,9 @@ module perpetual::model {
         }
     }
 
-    public(friend) fun create_reserving_fee_model(): ReservingFeeModel {
+    public(friend) fun create_reserving_fee_model(multiplier: Decimal): ReservingFeeModel {
         ReservingFeeModel {
-            multiplier: decimal::zero()
+            multiplier
         }
     }
 

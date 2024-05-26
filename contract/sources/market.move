@@ -3,12 +3,15 @@ module perpetual::market {
     use std::string::String;
     use aptos_std::table::Table;
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Symbol};
+    use perpetual::pool::{Self, Symbol};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
     use perpetual::positions::{Position};
+    use perpetual::decimal;
+    use perpetual::agg_price;
     use aptos_std::type_info::TypeInfo;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin::Coin;
+    use pyth::price_identifier;
 
 
     struct Market has key {
@@ -73,11 +76,25 @@ module perpetual::market {
         weight: u256,
         max_interval: u64,
         max_price_confidence: u64,
-        feeder:
+        feeder: vector<u8>,
+        param_multiplier: u256,
     ) {
+        let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // create reserving fee model
+        let model = model::create_reserving_fee_model(
+            decimal::from_raw(param_multiplier));
         // add vault to market
-        // emit event
+        pool::new_vault<Collateral>(
+            account,
+            weight,
+            model,
+            agg_price::new_agg_price_config<Collateral>(
+                max_interval,
+                max_price_confidence,
+                identifier
+            )
+        );
+        // TODO: emit event
     }
 
     public entry fun replace_vault_feeder<LP, Collateral>() {

@@ -5,17 +5,23 @@ module perpetual::pool {
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::model::{FundingFeeModel};
+    use perpetual::model::{FundingFeeModel, ReservingFeeModel};
     use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{PositionConfig, Position};
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
+    use perpetual::agg_price::AggPriceConfig;
+
+    friend perpetual::market;
 
     struct Vault<phantom CoinType> has key, store {
         enabled: bool,
-        last_update: Decimal,
+        weight: Decimal,
+        last_update: u64,
         liquidity: coin::Coin<CoinType>,
         reserved_amount: u64,
+        reserving_fee_model: ReservingFeeModel,
+        price_config: AggPriceConfig,
         unrealised_reserving_fee_amount: Decimal,
         acc_reserving_rate: Rate
     }
@@ -49,7 +55,24 @@ module perpetual::pool {
         //event: DecreasePositionSuccessEvent,
     }
 
-    public(friend) fun new_vault<Collateral>() {}
+    public(friend) fun new_vault<Collateral>(
+        account: &signer,
+        weight: u256,
+        model: ReservingFeeModel,
+        price_config: AggPriceConfig
+    ) {
+        move_to(account, Vault<Collateral>{
+            enabled: true,
+            weight: decimal::from_raw(weight),
+            last_update: 0,
+            liquidity: coin::zero<Collateral>(),
+            reserved_amount: 0,
+            reserving_fee_model: model,
+            price_config,
+            unrealised_reserving_fee_amount: decimal::zero(),
+            acc_reserving_rate: rate::zero()
+        })
+    }
 
     public(friend) fun mut_vault_price_config<Collateral>() {}
 
