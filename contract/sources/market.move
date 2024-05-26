@@ -2,37 +2,79 @@ module perpetual::market {
 
     use std::string::String;
     use aptos_std::table::Table;
-    use perpetual::rate::Rate;
-    use perpetual::pool::Symbol;
+    use perpetual::rate::{Self, Rate};
+    use perpetual::pool::{Symbol};
+    use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
+    use perpetual::positions::{Position};
+    use aptos_std::type_info::TypeInfo;
+    use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
+    use aptos_framework::coin::Coin;
 
 
-    struct Market<phantom LP> has key {
+    struct Market has key {
         vaults_locked: bool,
         symbols_locked: bool,
 
-        rebate_rate: Rate,
-
-        symbols: Table<u64, Symbol>,
-        positions: Table<u64, u64>,
-        orders: Table<u64, u64>,
+        rebate_rate: RebaseFeeModel,
 
         lp_supply: u64,
+    }
+
+    struct PositionsRecord<phantom CoinType> has key {
+        positions: Table<u64, Position<CoinType>>
     }
 
     struct LONG has drop {}
 
     struct SHORT has drop {}
 
-    public(friend) fun create_market<LP>(
+    struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
+        id: u64,
+        owner: address
+    }
+
+    struct PositionId<phantom CoinType, phantom Index, phantom Direction> has store, copy, drop {
+        id: u64,
+        owner: address
+    }
+
+    struct PositionRecord<phantom CoinType, phantom Index, phantom Direction> has key {
+        creation_num: u64,
+        positions: Table<PositionId<CoinType, Index, Direction>, Position<CoinType>>
+    }
+
+    struct OrderRecord<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has key {
+        creation_num: u64,
+        open_orders: Table<OrderId<CoinType, Index, Direction, Fee>, OpenPositionOrder<CoinType>>,
+        decrease_orders: Table<OrderId<CoinType, Index, Direction, Fee>, DecreasePositionOrder<CoinType>>
+    }
+
+    public(friend) fun create_market(
         account: &signer,
         rebate_rate: Rate
     ) {
         // create rebase fee model
+        let rate = model::create_rebase_fee_model();
         // move market resource to account
+        let market = Market {
+            vaults_locked: false,
+            symbols_locked: false,
+
+            rebate_rate: rate,
+
+            lp_supply: 0,
+        };
+        move_to(account, market);
         // emit event
     }
 
-    public entry fun add_new_vault<LP, Collateral>() {
+    public entry fun add_new_vault<Collateral>(
+        account: &signer,
+        weight: u256,
+        max_interval: u64,
+        max_price_confidence: u64,
+        feeder:
+    ) {
         // create reserving fee model
         // add vault to market
         // emit event

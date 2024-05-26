@@ -11,16 +11,16 @@ module perpetual::pool {
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
 
-    struct Vault<phantom CoinType> has store {
+    struct Vault<phantom CoinType> has key, store {
         enabled: bool,
         last_update: Decimal,
-        liquidity:coin::Coin<CoinType>,
+        liquidity: coin::Coin<CoinType>,
         reserved_amount: u64,
         unrealised_reserving_fee_amount: Decimal,
         acc_reserving_rate: Rate
     }
 
-    struct Symbol has store {
+    struct Symbol has key, store {
         open_enabled: bool,
         decrease_enabled: bool,
         liquidate_enabled: bool,
