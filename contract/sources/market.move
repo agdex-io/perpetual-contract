@@ -143,7 +143,7 @@ module perpetual::market {
         });
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // add symbol to market
-        pool::new_symbol(admin, model, agg_price::new_agg_price_config<Index>(
+        pool::new_symbol<Index, Direction>(admin, model, agg_price::new_agg_price_config<Index>(
             max_interval,
             max_price_confidence,
             identifier
@@ -151,17 +151,25 @@ module perpetual::market {
         // TODO: emit event
     }
 
-    public entry fun replace_symbol_feeder<LP, Index, Direction>() {
-
+    public entry fun replace_symbol_feeder<Index, Direction>(
+        admin: &signer,
+        feeder: vector<u8>,
+        max_interval: u64,
+        max_price_confidence: u64
+    ) {
+        // TODO: amdin permission check
+        let identifier = pyth::price_identifier::from_byte_vec(feeder);
+        let price_config = agg_price::new_agg_price_config<Index>(max_interval, max_interval, identifier);
+        pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
+        // TODO: emit event
     }
 
-    public entry fun add_collateral_to_symbol<LP, Collateral, Index, Direction>() {
+    public entry fun add_collateral_to_symbol<Collateral, Index, Direction>() {
         // get symbol
         // pool::add_collateral_to_symbol
-
     }
 
-    public entry fun remove_collateral_from_symbol<LP, Collateral, Index, Direaction>() {
+    public entry fun remove_collateral_from_symbol<Collateral, Index, Direaction>() {
         // get symbol
         // pool::remove_collateral_to_symbol
 

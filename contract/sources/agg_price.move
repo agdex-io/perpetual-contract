@@ -16,7 +16,7 @@ module perpetual::agg_price {
         precision: u64,
     }
 
-    struct AggPriceConfig has store {
+    struct AggPriceConfig has store, drop {
         max_interval: u64,
         max_confidence: u64,
         precision: u64,

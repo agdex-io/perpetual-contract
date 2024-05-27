@@ -1,5 +1,6 @@
 module perpetual::pool {
 
+    use std::signer;
     use aptos_framework::coin;
     use aptos_framework::coin::Coin;
     use perpetual::rate::{Self, Rate};
@@ -11,6 +12,8 @@ module perpetual::pool {
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::AggPriceConfig;
+    use pyth::price;
+    use aptos_std::big_vector::borrow;
 
     friend perpetual::market;
 
@@ -26,7 +29,7 @@ module perpetual::pool {
         acc_reserving_rate: Rate
     }
 
-    struct Symbol has key, store {
+    struct Symbol<phantom Index, phantom Direction> has key, store {
         open_enabled: bool,
         decrease_enabled: bool,
         liquidate_enabled: bool,
@@ -76,12 +79,12 @@ module perpetual::pool {
 
     public(friend) fun mut_vault_price_config<Collateral>() {}
 
-    public(friend) fun new_symbol(
+    public(friend) fun new_symbol<Index, Direction>(
         admin: &signer,
         model: FundingFeeModel,
         price_config: AggPriceConfig
     ) {
-        move_to(admin, Symbol {
+        move_to(admin, Symbol<Index, Direction> {
             open_enabled: true,
             decrease_enabled: true,
             liquidate_enabled: true,
@@ -97,13 +100,20 @@ module perpetual::pool {
         });
     }
 
-    public(friend) fun mut_symbol_price_config(symbol: &mut Symbol) {}
+    public(friend) fun replace_symbol_price_config<Index, Direction>(
+        admin: &signer,
+        price_config: AggPriceConfig
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        symbol.price_config = price_config;
+    }
 
-    public(friend) fun add_collateral_to_symbol<Collateral>(symbol: &mut Symbol) {}
+    public(friend) fun add_collateral_to_symbol<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
 
-    public(friend) fun remove_collateral_to_symbol<Collateral>(symbol: &mut Symbol) {}
+    public(friend) fun remove_collateral_to_symbol<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
 
-    public(friend) fun set_symbol_status<Collateral>(symbol: &mut Symbol) {}
+    public(friend) fun set_symbol_status<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
 
     public(friend) fun deposit<Collateral>() {}
 

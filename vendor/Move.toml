@@ -12,9 +12,9 @@ Wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir
 Deployer = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "aptos/deployer", rev = "b8676f09a6e4a92bbaecb5f3d59b5e9b778de082" }
 
 [addresses]
-pyth = "_"
-deployer = "_"
-wormhole = "_"
+pyth = "0x1234"
+deployer = "0x12345"
+wormhole = "0x123456"
 
 [dev-addresses]
 # Note that these are localnet addresses, for use in testing. The contracts are deployed to the real networks at the
