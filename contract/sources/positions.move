@@ -9,6 +9,8 @@ module perpetual::positions {
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
 
+    friend perpetual::market;
+
     struct PositionConfig has copy, drop, store {
         max_leverage: u64,
         min_holding_duration: u64,

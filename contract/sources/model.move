@@ -30,10 +30,10 @@ module perpetual::model {
         }
     }
 
-    public(friend) fun create_funding_fee_model(): FundingFeeModel {
+    public(friend) fun create_funding_fee_model(multiplier: Decimal, max: Rate): FundingFeeModel {
         FundingFeeModel {
-            multiplier: decimal::zero(),
-            max: rate::zero()
+            multiplier,
+            max
         }
     }
 

@@ -32,7 +32,7 @@ module perpetual::pool {
         liquidate_enabled: bool,
         supported_collaterals: SmartVector<TypeInfo>,
         funding_fee_model: FundingFeeModel,
-        price_config: u64, // oracle
+        price_config: AggPriceConfig,
 
         last_update: u64,
         opening_amount: u64,
@@ -76,7 +76,26 @@ module perpetual::pool {
 
     public(friend) fun mut_vault_price_config<Collateral>() {}
 
-    public(friend) fun new_symbol() {}
+    public(friend) fun new_symbol(
+        admin: &signer,
+        model: FundingFeeModel,
+        price_config: AggPriceConfig
+    ) {
+        move_to(admin, Symbol {
+            open_enabled: true,
+            decrease_enabled: true,
+            liquidate_enabled: true,
+            supported_collaterals: smart_vector::empty(),
+            funding_fee_model: model,
+            price_config,
+            last_update: 0,
+            opening_amount: 0,
+            opening_size: decimal::zero(),
+            realised_pnl: sdecimal::zero(),
+            unrealised_funding_fee_value: sdecimal::zero(),
+            acc_funding_rate: srate::zero(),
+        });
+    }
 
     public(friend) fun mut_symbol_price_config(symbol: &mut Symbol) {}
 

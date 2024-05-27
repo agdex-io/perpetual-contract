@@ -5,7 +5,7 @@ module perpetual::market {
     use perpetual::rate::{Self, Rate};
     use perpetual::pool::{Self, Symbol};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
-    use perpetual::positions::{Position};
+    use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal;
     use perpetual::agg_price;
     use aptos_std::type_info::TypeInfo;
@@ -21,6 +21,11 @@ module perpetual::market {
         rebate_rate: RebaseFeeModel,
 
         lp_supply: u64,
+    }
+
+    struct WrappedPositionConfig<phantom Index, phantom Direction> has key {
+        enabled: bool,
+        inner: PositionConfig
     }
 
     struct PositionsRecord<phantom CoinType> has key {
@@ -53,7 +58,7 @@ module perpetual::market {
     }
 
     public(friend) fun create_market(
-        account: &signer,
+        admin: &signer,
         rebate_rate: Rate
     ) {
         // create rebase fee model
@@ -67,12 +72,12 @@ module perpetual::market {
 
             lp_supply: 0,
         };
-        move_to(account, market);
-        // emit event
+        move_to(admin, market);
+        //TODO: emit event
     }
 
     public entry fun add_new_vault<Collateral>(
-        account: &signer,
+        admin: &signer,
         weight: u256,
         max_interval: u64,
         max_price_confidence: u64,
@@ -85,7 +90,7 @@ module perpetual::market {
             decimal::from_raw(param_multiplier));
         // add vault to market
         pool::new_vault<Collateral>(
-            account,
+            admin,
             weight,
             model,
             agg_price::new_agg_price_config<Collateral>(
@@ -97,15 +102,53 @@ module perpetual::market {
         // TODO: emit event
     }
 
-    public entry fun replace_vault_feeder<LP, Collateral>() {
+    public entry fun replace_vault_feeder<Collateral>() {
 
     }
 
-    public entry fun add_new_symbol<LP, Index, Direction>() {
+    public entry fun add_new_symbol<Index, Direction>(
+        admin: &signer,
+        max_interval: u64,
+        max_price_confidence: u64,
+        feeder: vector<u8>,
+        param_multiplier: u256,
+        param_max: u128,
+        max_leverage: u64,
+        min_holding_duration: u64,
+        max_reserved_multiplier: u64,
+        min_collateral_value: u256,
+        open_fee_bps: u128,
+        decrease_fee_bps: u128,
+        liquidation_threshold: u128,
+        liquidation_bonus: u128
+    ) {
         // create funding fee model
+        let model = model::create_funding_fee_model(
+            decimal::from_raw(param_multiplier),
+            rate::from_raw(param_max)
+        );
         // create public position config
+        move_to(admin, WrappedPositionConfig<Index, Direction>{
+            enabled: true,
+            inner: positions::new_position_config(
+                max_leverage,
+                min_holding_duration,
+                max_reserved_multiplier,
+                min_collateral_value,
+                open_fee_bps,
+                decrease_fee_bps,
+                liquidation_threshold,
+                liquidation_bonus
+            )
+        });
+        let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // add symbol to market
-        // emit event
+        pool::new_symbol(admin, model, agg_price::new_agg_price_config<Index>(
+            max_interval,
+            max_price_confidence,
+            identifier
+        ));
+        // TODO: emit event
     }
 
     public entry fun replace_symbol_feeder<LP, Index, Direction>() {
