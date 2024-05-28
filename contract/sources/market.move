@@ -1,16 +1,22 @@
 module perpetual::market {
 
+    use std::signer;
+    use std::option;
     use std::string::String;
-    use aptos_std::table::Table;
+    use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
     use perpetual::pool::{Self, Symbol};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
-    use perpetual::decimal;
+    use perpetual::decimal::{Self, Decimal};
+    use perpetual::lp;
     use perpetual::agg_price;
-    use aptos_std::type_info::TypeInfo;
+    use perpetual::referral::{Self, Referral};
+    use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
-    use aptos_framework::coin::Coin;
+    use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::timestamp;
+    use aptos_framework::aptos_coin::AptosCoin;
     use pyth::price_identifier;
 
 
@@ -19,8 +25,7 @@ module perpetual::market {
         symbols_locked: bool,
 
         rebate_rate: RebaseFeeModel,
-
-        lp_supply: u64,
+        referrals: Table<address, Referral>
     }
 
     struct WrappedPositionConfig<phantom Index, phantom Direction> has key {
@@ -53,9 +58,28 @@ module perpetual::market {
 
     struct OrderRecord<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has key {
         creation_num: u64,
-        open_orders: Table<OrderId<CoinType, Index, Direction, Fee>, OpenPositionOrder<CoinType>>,
+        open_orders: Table<OrderId<CoinType, Index, Direction, Fee>, OpenPositionOrder<CoinType, Fee>>,
         decrease_orders: Table<OrderId<CoinType, Index, Direction, Fee>, DecreasePositionOrder<CoinType>>
     }
+
+    // === Errors ===
+    // common errors
+    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 1;
+    const ERR_MARKET_ALREADY_LOCKED: u64 = 2;
+    // referral errors
+    const ERR_ALREADY_HAS_REFERRAL: u64 = 3;
+    // perpetual trading errors
+    const ERR_INVALID_DIRECTION: u64 = 4;
+    const ERR_CAN_NOT_CREATE_ORDER: u64 = 5;
+    const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 6;
+    // deposit, withdraw and swap errors
+    const ERR_VAULT_ALREADY_HANDLED: u64 = 7;
+    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 8;
+    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 9;
+    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10;
+    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 11;
+    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 12;
+    const ERR_SWAPPING_SAME_COINS: u64 = 13;
 
     public(friend) fun create_market(
         admin: &signer,
@@ -69,8 +93,8 @@ module perpetual::market {
             symbols_locked: false,
 
             rebate_rate: rate,
+            referrals: table::new<address, Referral>()
 
-            lp_supply: 0,
         };
         move_to(admin, market);
         //TODO: emit event
@@ -102,8 +126,16 @@ module perpetual::market {
         // TODO: emit event
     }
 
-    public entry fun replace_vault_feeder<Collateral>() {
-
+    public entry fun replace_vault_feeder<Collateral>(
+        admin: &signer,
+        feeder: vector<u8>,
+        max_interval: u64,
+        max_price_confidence: u64
+    ) {
+        let identifier = pyth::price_identifier::from_byte_vec(feeder);
+        let price_config =
+            agg_price::new_agg_price_config<Collateral>(max_interval, max_price_confidence, identifier);
+        pool::replace_vault_price_config<Collateral>(admin, price_config);
     }
 
     public entry fun add_new_symbol<Index, Direction>(
@@ -159,36 +191,185 @@ module perpetual::market {
     ) {
         // TODO: amdin permission check
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
-        let price_config = agg_price::new_agg_price_config<Index>(max_interval, max_interval, identifier);
+        let price_config =
+            agg_price::new_agg_price_config<Index>(max_interval, max_price_confidence, identifier);
         pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
         // TODO: emit event
     }
 
-    public entry fun add_collateral_to_symbol<Collateral, Index, Direction>() {
-        // get symbol
+    public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(
+        admin: &signer
+    ) {
+        // TODO: admin permission check
         // pool::add_collateral_to_symbol
+        pool::add_collateral_to_symbol<Collateral, Index, Direction>(admin);
+        // create record
+        if (!exists<PositionRecord<Collateral, Index, Direction>>(@perpetual)){
+            move_to(admin, PositionRecord<Collateral, Index, Direction>{
+                creation_num: 0,
+                positions: table::new<PositionId<Collateral, Index, Direction>, Position<Collateral>>()
+            })
+        };
+
+        if (!exists<OrderRecord<Collateral, Index, Direction, AptosCoin>>(@perpetual)) {
+            move_to(admin, OrderRecord<Collateral, Index, Direction, AptosCoin>{
+                creation_num: 0,
+                open_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, OpenPositionOrder<Collateral, AptosCoin>>(),
+                decrease_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, DecreasePositionOrder<Collateral>>()
+            })
+        };
     }
 
-    public entry fun remove_collateral_from_symbol<Collateral, Index, Direaction>() {
-        // get symbol
+    public entry fun remove_collateral_from_symbol<Collateral, Index, Direction>(
+        admin: &signer
+    ) {
+        // TODO: admin permission check
         // pool::remove_collateral_to_symbol
+        pool::remove_collateral_to_symbol<Collateral, Index, Direction>(admin);
+    }
+
+    public entry fun set_symbol_status<Index, Direaction>(
+        admin: &signer,
+        open_enabled: bool,
+        decrease_enabled: bool,
+        liquidate_enabled: bool
+    ) {
+        // TODO: admin permission check
+        pool::set_symbol_status<Index, Direaction>(admin, open_enabled, decrease_enabled, liquidate_enabled);
 
     }
 
-    public entry fun set_symbol_status<LP, Index, Direaction>() {
-
+    public entry fun replace_position_config<Index, Direction>(
+        admin: &signer,
+        max_leverage: u64,
+        min_holding_duration: u64,
+        max_reserved_multiplier: u64,
+        min_collateral_value: u256,
+        open_fee_bps: u128,
+        decrease_fee_bps: u128,
+        liquidation_threshold: u128,
+        liquidation_bonus: u128,
+    ) acquires WrappedPositionConfig {
+        // TODO: admin permission check
+        let wrapped_position_config =
+            borrow_global_mut<WrappedPositionConfig<Index, Direction>>(signer::address_of(admin));
+        let new_positions_config = positions::new_position_config(
+                max_leverage,
+                min_holding_duration,
+                max_reserved_multiplier,
+                min_collateral_value,
+                open_fee_bps,
+                decrease_fee_bps,
+                liquidation_threshold,
+                liquidation_bonus
+            );
+        wrapped_position_config.inner = new_positions_config;
     }
 
-    public entry fun replace_position_config<Index, Direction>() {
+    public entry fun open_position<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        trade_level: u8,
+        open_amount: u64,
+        reserve_amount: u64,
+        collateral_amount: u64,
+        fee_amount: u64,
+        collateral_price_threshold: u256,
+        limited_index_price: u256
+    ) acquires Market, WrappedPositionConfig, OrderRecord, PositionRecord {
+        let user_account = signer::address_of(user);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
+        let lp_supply_amount = lp_supply_amount();
+        let timestamp = timestamp::now_seconds();
+        let long = parse_direction<Direction>();
 
-    }
+        let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
+        let index_price = agg_price::parse_pyth_feeder(
+            &pool::symbol_price_config<Index, Direction>(),
+            timestamp
+        );
+        let limited_index_price = agg_price::from_price(
+            &pool::symbol_price_config<Index, Direction>(),
+            decimal::from_raw(limited_index_price),
+        );
 
-    public entry fun add_new_referral<Index, Direction>() {
+        // check if limited order can be placed
+        let placed = if (long) {
+            decimal::gt(
+                &agg_price::price_of(&index_price),
+                &agg_price::price_of(&limited_index_price),
+            )
+        } else {
+            decimal::lt(
+                &agg_price::price_of(&index_price),
+                &agg_price::price_of(&limited_index_price),
+            )
+        };
 
-    }
+        let position_config =
+            borrow_global<WrappedPositionConfig<Index, Direction>>(@perpetual);
 
-    public entry fun open_position<LP, Collateral, Index, Direaction, Fee>() {
+        if (placed) {
+            assert!(trade_level < 2, ERR_CAN_NOT_CREATE_ORDER);
+            let order = orders::new_open_position_order<Collateral, Fee>(
+                timestamp,
+                open_amount,
+                reserve_amount,
+                limited_index_price,
+                collateral_price_threshold,
+                position_config.inner,
+                coin::withdraw<Collateral>(user, collateral_amount),
+                coin::withdraw<Fee>(user, fee_amount)
+            );
+            // add order into record
+            let order_record =
+                borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+            table::add(&mut order_record.open_orders, OrderId<Collateral, Index, Direction, Fee>{
+                id: order_record.creation_num,
+                owner: user_account
+            }, order);
+            order_record.creation_num = order_record.creation_num + 1;
+            // TODO: emit order created event
 
+        } else {
+            let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
+            let (code, collateral, result, _) = pool::open_position<Collateral, Index, Direction>(
+                &position_config.inner,
+                coin::withdraw<Collateral>(user, collateral_amount),
+                collateral_price_threshold,
+                rebate_rate,
+                long,
+                open_amount,
+                reserve_amount,
+                lp_supply_amount,
+                timestamp,
+            );
+            coin::deposit(user_account, collateral);
+            // should panic when the owner execute the order
+            assert!(code == 0, code);
+            //coin::destroy_zero(collateral);
+
+            let (position, rebate, event) =
+                pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
+
+            // add position into record
+            let position_record =
+                borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+            table::add(&mut position_record.positions, PositionId<Collateral, Index, Direction>{
+                id: position_record.creation_num,
+                owner: user_account
+            }, position);
+            position_record.creation_num = position_record.creation_num + 1;
+
+            coin::deposit(referrer, rebate);
+
+
+            // TODO: emit position opened
+            // event::emit(PositionClaimed {
+            //     position_name: option::some(position_name),
+            //     event,
+            // });
+        }
     }
 
     public entry fun decrease_position<LP, Collateral, Index, Direction, Fee>() {
@@ -262,6 +443,40 @@ module perpetual::market {
     public fun force_close_position<LP, Collateral, Index, Direction>() {}
 
     public fun force_clear_closed_position<LP, Collateral, Index, Direction>() {}
+
+    public fun lp_supply_amount(): Decimal {
+        // LP decimal is 6
+        let supply = lp::get_supply();
+        decimal::div_by_u64(
+            decimal::from_u128(supply),
+            1_000_000,
+        )
+    }
+
+    public fun parse_direction<Direction>(): bool {
+        let direction = type_info::type_of<Direction>();
+        if (direction == type_info::type_of<LONG>()) {
+            true
+        } else {
+            assert!(
+                direction == type_info::type_of<SHORT>(),
+                ERR_INVALID_DIRECTION,
+            );
+            false
+        }
+    }
+
+    fun get_referral_data(
+        referrals: &Table<address, Referral>,
+        owner: address
+    ): (Rate, address) {
+        if (table::contains(referrals, owner)) {
+            let referral = table::borrow(referrals, owner);
+            (referral::get_rebate_rate(referral), referral::get_referrer(referral))
+        } else {
+            (rate::zero(), @0x0)
+        }
+    }
 
 
 }

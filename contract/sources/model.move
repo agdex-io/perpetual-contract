@@ -47,12 +47,39 @@ module perpetual::model {
 
     }
 
-    public fun compute_reserving_fee_rate() {
-
+    public fun compute_reserving_fee_rate(
+        model: &ReservingFeeModel,
+        utilization: Rate,
+        elapsed: u64
+    ): Rate {
+        let daily_rate = decimal::to_rate(
+            decimal::mul_with_rate(model.multiplier, utilization)
+        );
+        rate::div_by_u64(
+            rate::mul_with_u64(daily_rate, elapsed),
+            SECONDS_PER_EIGHT_HOUR,
+        )
     }
 
-    public fun compute_funding_fee_rate() {
-
+    public fun compute_funding_fee_rate(
+        model: &FundingFeeModel,
+        pnl_per_lp: SDecimal,
+        elapsed: u64,
+    ): SRate {
+        let daily_rate = decimal::to_rate(
+            decimal::mul(model.multiplier, sdecimal::value(&pnl_per_lp))
+        );
+        if (rate::gt(&daily_rate, &model.max)) {
+            daily_rate = model.max;
+        };
+        let seconds_rate = rate::div_by_u64(
+            rate::mul_with_u64(daily_rate, elapsed),
+            SECONDS_PER_EIGHT_HOUR,
+        );
+        srate::from_rate(
+            !sdecimal::is_positive(&pnl_per_lp),
+            seconds_rate,
+        )
     }
 
     public fun update_rebase_fee_model(model: &mut RebaseFeeModel) {}

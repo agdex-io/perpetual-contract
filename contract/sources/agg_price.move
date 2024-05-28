@@ -16,7 +16,7 @@ module perpetual::agg_price {
         precision: u64,
     }
 
-    struct AggPriceConfig has store, drop {
+    struct AggPriceConfig has copy, store, drop {
         max_interval: u64,
         max_confidence: u64,
         precision: u64,
@@ -54,12 +54,10 @@ module perpetual::agg_price {
 
     public fun parse_pyth_feeder(
         config: &AggPriceConfig,
-        feeder: PriceIdentifier,
         timestamp: u64,
     ): AggPrice {
-        assert!(feeder == config.feeder, ERR_INVALID_PRICE_FEEDER);
 
-        let price = get_price_unsafe(feeder);
+        let price = get_price_unsafe(config.feeder);
         assert!(
             pyth_price::get_timestamp(&price) + config.max_interval >= timestamp,
             ERR_PRICE_STALED,

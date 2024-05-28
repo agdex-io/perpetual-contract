@@ -1,27 +1,28 @@
 module perpetual::pool {
 
     use std::signer;
+    use std::option::{Self, Option};
     use aptos_framework::coin;
     use aptos_framework::coin::Coin;
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::model::{FundingFeeModel, ReservingFeeModel};
+    use perpetual::model::{Self, FundingFeeModel, ReservingFeeModel};
     use perpetual::sdecimal::{Self, SDecimal};
-    use perpetual::positions::{PositionConfig, Position};
+    use perpetual::positions::{Self, PositionConfig, Position};
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
-    use perpetual::agg_price::AggPriceConfig;
+    use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
     use pyth::price;
     use aptos_std::big_vector::borrow;
 
     friend perpetual::market;
 
-    struct Vault<phantom CoinType> has key, store {
+    struct Vault<phantom Collateral> has key, store {
         enabled: bool,
         weight: Decimal,
         last_update: u64,
-        liquidity: coin::Coin<CoinType>,
+        liquidity: coin::Coin<Collateral>,
         reserved_amount: u64,
         reserving_fee_model: ReservingFeeModel,
         price_config: AggPriceConfig,
@@ -49,14 +50,115 @@ module perpetual::pool {
     struct OpenPositionResult<phantom Collateral> {
         position: Position<Collateral>,
         rebate: Coin<Collateral>,
-        //event: OpenPositionSuccessEvent,
+        event: OpenPositionSuccessEvent,
     }
 
     struct DecreasePositionResult<phantom Collateral> {
         to_trader: Coin<Collateral>,
         rebate: Coin<Collateral>,
-        //event: DecreasePositionSuccessEvent,
+        event: DecreasePositionSuccessEvent,
     }
+
+    // === Position Events ===
+
+    struct OpenPositionSuccessEvent has copy, drop {
+        position_config: PositionConfig,
+        collateral_price: Decimal,
+        index_price: Decimal,
+        open_amount: u64,
+        open_fee_amount: u64,
+        reserve_amount: u64,
+        collateral_amount: u64,
+        rebate_amount: u64,
+    }
+
+    struct OpenPositionFailedEvent has copy, drop {
+        position_config: PositionConfig,
+        collateral_price: Decimal,
+        index_price: Decimal,
+        open_amount: u64,
+        collateral_amount: u64,
+        code: u64,
+    }
+
+    struct DecreasePositionSuccessEvent has copy, drop {
+        collateral_price: Decimal,
+        index_price: Decimal,
+        decrease_amount: u64,
+        decrease_fee_value: Decimal,
+        reserving_fee_value: Decimal,
+        funding_fee_value: SDecimal,
+        delta_realised_pnl: SDecimal,
+        closed: bool,
+        has_profit: bool,
+        settled_amount: u64,
+        rebate_amount: u64,
+    }
+
+    struct DecreasePositionFailedEvent has copy, drop {
+        collateral_price: Decimal,
+        index_price: Decimal,
+        decrease_amount: u64,
+        code: u64,
+    }
+
+    struct DecreaseReservedFromPositionEvent has copy, drop {
+        decrease_amount: u64,
+    }
+
+    struct PledgeInPositionEvent has copy, drop {
+        pledge_amount: u64,
+    }
+
+    struct RedeemFromPositionEvent has copy, drop {
+        collateral_price: Decimal,
+        index_price: Decimal,
+        redeem_amount: u64,
+    }
+
+    struct LiquidatePositionEvent has copy, drop {
+        liquidator: address,
+        collateral_price: Decimal,
+        index_price: Decimal,
+        reserving_fee_value: Decimal,
+        funding_fee_value: SDecimal,
+        delta_realised_pnl: SDecimal,
+        loss_amount: u64,
+        liquidator_bonus_amount: u64,
+    }
+
+    struct LiquidatePositionEventV1_1 has copy, drop {
+        liquidator: address,
+        collateral_price: Decimal,
+        index_price: Decimal,
+        position_size: Decimal,
+        reserving_fee_value: Decimal,
+        funding_fee_value: SDecimal,
+        delta_realised_pnl: SDecimal,
+        loss_amount: u64,
+        liquidator_bonus_amount: u64,
+    }
+
+    // === Errors ===
+
+    // vault errors
+    const ERR_VAULT_DISABLED: u64 = 1;
+    const ERR_INSUFFICIENT_SUPPLY: u64 = 2;
+    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 3;
+    // symbol errors
+    const ERR_COLLATERAL_NOT_SUPPORTED: u64 = 4;
+    const ERR_OPEN_DISABLED: u64 = 5;
+    const ERR_DECREASE_DISABLED: u64 = 6;
+    const ERR_LIQUIDATE_DISABLED: u64 = 7;
+    // deposit, withdraw or swap errors
+    const ERR_INVALID_SWAP_AMOUNT: u64 = 8;
+    const ERR_INVALID_DEPOSIT_AMOUNT: u64 = 9;
+    const ERR_INVALID_BURN_AMOUNT: u64 = 10;
+    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 11;
+    const ERR_AMOUNT_OUT_TOO_LESS: u64 = 12;
+    // model errors
+    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 13;
+    const ERR_MISMATCHED_FUNDING_FEE_MODEL: u64 = 14;
 
     public(friend) fun new_vault<Collateral>(
         account: &signer,
@@ -77,7 +179,14 @@ module perpetual::pool {
         })
     }
 
-    public(friend) fun mut_vault_price_config<Collateral>() {}
+    public(friend) fun replace_vault_price_config<Collateral>(
+        admin: &signer,
+        price_config: AggPriceConfig
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        vault.price_config = price_config;
+
+    }
 
     public(friend) fun new_symbol<Index, Direction>(
         admin: &signer,
@@ -109,11 +218,39 @@ module perpetual::pool {
         symbol.price_config = price_config;
     }
 
-    public(friend) fun add_collateral_to_symbol<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
+    public(friend) fun add_collateral_to_symbol<Index, Direction, Collateral>(
+        admin: &signer
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        smart_vector::push_back(&mut symbol.supported_collaterals, type_info::type_of<Collateral>())
+    }
 
-    public(friend) fun remove_collateral_to_symbol<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
+    public(friend) fun remove_collateral_to_symbol<Index, Direction, Collateral>(
+        admin: &signer
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        let type_info = type_info::type_of<Collateral>();
+        let (exist, index) =
+            smart_vector::index_of(&symbol.supported_collaterals, &type_info);
+        if(exist) {
+            let _ = smart_vector::remove(&mut symbol.supported_collaterals, index);
+        }
+    }
 
-    public(friend) fun set_symbol_status<Index, Direction, Collateral>(symbol: &mut Symbol<Index, Direction>) {}
+    public(friend) fun set_symbol_status<Index, Direction>(
+        admin: &signer,
+        open_enabled: bool,
+        decrease_enabled: bool,
+        liquidate_enabled: bool
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        symbol.open_enabled = open_enabled;
+        symbol.decrease_enabled = decrease_enabled;
+        symbol.liquidate_enabled = liquidate_enabled;
+    }
 
     public(friend) fun deposit<Collateral>() {}
 
@@ -123,9 +260,117 @@ module perpetual::pool {
 
     public(friend) fun swap_out<Destination>() {}
 
-    public(friend) fun open_position<Collateral>() {}
+    public(friend) fun open_position<Collateral, Index, Direction>(
+        position_config: &PositionConfig,
+        collateral: Coin<Collateral>,
+        collateral_price_threshold: Decimal,
+        rebate_rate: Rate,
+        long: bool,
+        open_amount: u64,
+        reserve_amount: u64,
+        lp_supply_amount: Decimal,
+        timestamp: u64,
+    ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>) acquires Vault, Symbol {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+        // refresh vault
+        refresh_vault(vault, timestamp);
+        // refresh symbol
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
 
-    public(friend) fun unwrap_open_position_result<Collateral>() {}
+        // open position
+        let (code, result) = positions::open_position(
+            position_config,
+            &collateral_price,
+            &index_price,
+            &mut vault.liquidity,
+            &mut collateral,
+            collateral_price_threshold,
+            open_amount,
+            reserve_amount,
+            vault.acc_reserving_rate,
+            symbol.acc_funding_rate,
+            timestamp,
+        );
+        if (code > 0) {
+            option::destroy_none(result);
+
+            let event = OpenPositionFailedEvent {
+                position_config: *position_config,
+                collateral_price: agg_price::price_of(&collateral_price),
+                index_price: agg_price::price_of(&index_price),
+                open_amount,
+                collateral_amount: coin::value(&collateral),
+                code,
+            };
+            return (code, collateral, option::none(), option::some(event))
+        };
+        let (position, open_fee, open_fee_amount_dec) =
+            positions::unwrap_open_position_result(option::destroy_some(result));
+        let open_fee_amount = coin::value(&open_fee);
+
+        // compute rebate
+        let rebate_amount = decimal::floor_u64(decimal::mul_with_rate(open_fee_amount_dec, rebate_rate));
+
+        // update vault
+        vault.reserved_amount = vault.reserved_amount + reserve_amount;
+        coin::merge(&mut vault.liquidity, open_fee);
+        assert!(coin::value(&vault.liquidity) > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
+        let rebate = coin::extract(&mut vault.liquidity, rebate_amount);
+
+        // update symbol
+        symbol.opening_size = decimal::add(
+            symbol.opening_size,
+            positions::position_size(&position),
+        );
+        symbol.opening_amount = symbol.opening_amount + open_amount;
+
+        let collateral_amount = positions::collateral_amount(&position);
+        let result = OpenPositionResult {
+            position,
+            rebate,
+            event: OpenPositionSuccessEvent {
+                position_config: *position_config,
+                collateral_price: agg_price::price_of(&collateral_price),
+                index_price: agg_price::price_of(&index_price),
+                open_amount,
+                open_fee_amount,
+                reserve_amount,
+                collateral_amount,
+                rebate_amount,
+            },
+        };
+        (code, collateral, option::some(result), option::none())
+
+    }
+
+    public(friend) fun unwrap_open_position_result<C>(res: OpenPositionResult<C>): (
+        Position<C>,
+        Coin<C>,
+        OpenPositionSuccessEvent,
+    ) {
+        let OpenPositionResult {
+            position,
+            rebate,
+            event,
+        } = res;
+
+        (position, rebate, event)
+    }
 
     public(friend) fun decrease_position<Collateral>() {}
 
@@ -143,7 +388,178 @@ module perpetual::pool {
 
     public(friend) fun valuate_symbol() {}
 
+    public(friend) fun symbol_price_config<Index, Direction>(): AggPriceConfig acquires Symbol {
+        borrow_global<Symbol<Index, Direction>>(@perpetual).price_config
+    }
 
+    fun refresh_vault<C>(
+        vault: &mut Vault<C>,
+        timestamp: u64,
+    ) {
+        let delta_rate = vault_delta_reserving_rate(
+            vault,
+            timestamp,
+        );
+        vault.acc_reserving_rate = vault_acc_reserving_rate(vault, delta_rate);
+        vault.unrealised_reserving_fee_amount =
+            vault_unrealised_reserving_fee_amount(vault, delta_rate);
+        vault.last_update = timestamp;
+    }
+
+    fun refresh_symbol<Index, Direction>(
+        symbol: &mut Symbol<Index, Direction>,
+        delta_size: SDecimal,
+        lp_supply_amount: Decimal,
+        timestamp: u64,
+    ) {
+        let delta_rate = symbol_delta_funding_rate(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+        symbol.acc_funding_rate = symbol_acc_funding_rate(symbol, delta_rate);
+        symbol.unrealised_funding_fee_value =
+            symbol_unrealised_funding_fee_value(symbol, delta_rate);
+        symbol.last_update = timestamp;
+    }
+
+    public fun vault_delta_reserving_rate<C>(
+        vault: &Vault<C>,
+        timestamp: u64,
+    ): Rate {
+        if (vault.last_update > 0) {
+            let elapsed = timestamp - vault.last_update;
+            if (elapsed > 0) {
+                return model::compute_reserving_fee_rate(
+                    &vault.reserving_fee_model,
+                    vault_utilization(vault),
+                    elapsed,
+                )
+            }
+        };
+        rate::zero()
+    }
+
+    public fun vault_acc_reserving_rate<C>(
+        vault: &Vault<C>,
+        delta_rate: Rate,
+    ): Rate {
+        rate::add(vault.acc_reserving_rate, delta_rate)
+    }
+
+    public fun vault_unrealised_reserving_fee_amount<C>(
+        vault: &Vault<C>,
+        delta_rate: Rate,
+    ): Decimal {
+        decimal::add(
+            vault.unrealised_reserving_fee_amount,
+            decimal::mul_with_rate(
+                decimal::from_u64(vault.reserved_amount),
+                delta_rate,
+            ),
+        )
+    }
+
+    public fun vault_utilization<C>(vault: &Vault<C>): Rate {
+        let supply_amount = vault_supply_amount(vault);
+        if (decimal::is_zero(&supply_amount)) {
+            rate::zero()
+        } else {
+            decimal::to_rate(
+                decimal::div(
+                    decimal::from_u64(vault.reserved_amount),
+                    supply_amount,
+                )
+            )
+        }
+    }
+
+    public fun vault_supply_amount<C>(vault: &Vault<C>): Decimal {
+        // liquidity_amount + reserved_amount + unrealised_reserving_fee_amount
+        decimal::add(
+            decimal::from_u64(
+                coin::value(&vault.liquidity) + vault.reserved_amount
+            ),
+            vault.unrealised_reserving_fee_amount,
+        )
+    }
+
+    public fun symbol_delta_size<Index, Direction>(
+        symbol: &Symbol<Index, Direction>,
+        price: &AggPrice,
+        long: bool,
+    ): SDecimal {
+        let latest_size = agg_price::coins_to_value(
+            price,
+            symbol.opening_amount,
+        );
+        let cmp = decimal::gt(&latest_size, &symbol.opening_size);
+        let (is_positive, value) = if (cmp) {
+            (!long, decimal::sub(latest_size, symbol.opening_size))
+        } else {
+            (long, decimal::sub(symbol.opening_size, latest_size))
+        };
+
+        sdecimal::from_decimal(is_positive, value)
+    }
+
+    public fun symbol_delta_funding_rate<Index, Direction>(
+        symbol: &Symbol<Index, Direction>,
+        delta_size: SDecimal,
+        lp_supply_amount: Decimal,
+        timestamp: u64,
+    ): SRate {
+        if (symbol.last_update > 0) {
+            let elapsed = timestamp - symbol.last_update;
+            if (elapsed > 0) {
+                return model::compute_funding_fee_rate(
+                    &symbol.funding_fee_model,
+                    symbol_pnl_per_lp(symbol, delta_size, lp_supply_amount),
+                    elapsed,
+                )
+            }
+        };
+        srate::zero()
+    }
+
+    public fun symbol_pnl_per_lp<Index, Direction>(
+        symbol: &Symbol<Index, Direction>,
+        delta_size: SDecimal,
+        lp_supply_amount: Decimal,
+    ): SDecimal {
+        let pnl = sdecimal::add(
+            sdecimal::add(
+                symbol.realised_pnl,
+                symbol.unrealised_funding_fee_value,
+            ),
+            delta_size,
+        );
+        sdecimal::div_by_decimal(pnl, lp_supply_amount)
+    }
+
+    public fun symbol_acc_funding_rate<Index, Direction>(
+        symbol: &Symbol<Index, Direction>,
+        delta_rate: SRate,
+    ): SRate {
+        srate::add(symbol.acc_funding_rate, delta_rate)
+    }
+
+    public fun symbol_unrealised_funding_fee_value<Index, Direction>(
+        symbol: &Symbol<Index, Direction>,
+        delta_rate: SRate,
+    ): SDecimal {
+        sdecimal::add(
+            symbol.unrealised_funding_fee_value,
+            sdecimal::from_decimal(
+                srate::is_positive(&delta_rate),
+                decimal::mul_with_rate(
+                    symbol.opening_size,
+                    srate::value(&delta_rate),
+                ),
+            ),
+        )
+    }
 
 
 }

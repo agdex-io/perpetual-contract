@@ -6,17 +6,20 @@ module perpetual::orders {
     use perpetual::decimal::{Self, Decimal};
     use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{PositionConfig};
+    use perpetual::agg_price::{AggPrice};
 
-    struct OpenPositionOrder<phantom CoinType> has store {
+    friend perpetual::market;
+
+    struct OpenPositionOrder<phantom CoinType, phantom Fee> has store {
         executed: bool,
         created_at: u64,
         open_amount: u64,
         reserve_amount: u64,
-        limited_index_price: Decimal,
+        limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         position_config: PositionConfig,
         collateral: Coin<CoinType>,
-        fee: Coin<CoinType>,
+        fee: Coin<Fee>,
     }
 
     struct DecreasePositionOrder<phantom CoinType> has store {
@@ -29,7 +32,30 @@ module perpetual::orders {
         fee: Coin<CoinType>,
     }
 
-    public(friend) fun new_open_position_order<Collateral, Fee>() {}
+    public(friend) fun new_open_position_order<Collateral, Fee>(
+        timestamp: u64,
+        open_amount: u64,
+        reserve_amount: u64,
+        limited_index_price: AggPrice,
+        collateral_price_threshold: Decimal,
+        position_config: PositionConfig,
+        collateral: Coin<Collateral>,
+        fee: Coin<Fee>,
+    ): OpenPositionOrder<Collateral, Fee> {
+        let order = OpenPositionOrder<Collateral, Fee> {
+            executed: false,
+            created_at: timestamp,
+            open_amount,
+            reserve_amount,
+            limited_index_price,
+            collateral_price_threshold,
+            position_config,
+            collateral,
+            fee
+        };
+        order
+    }
+
 
     public(friend) fun new_decrease_position_order<Fee>() {}
 
