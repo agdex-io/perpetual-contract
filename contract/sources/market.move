@@ -629,8 +629,26 @@ module perpetual::market {
 
     }
 
-    public entry fun clear_closed_position<Lp, Collateral, Index, Direction>() {
+    public entry fun clear_closed_position<Collateral, Index, Direction>(
+        user: &signer,
+        position_num: u64
+    ) acquires Market, PositionRecord {
+        let user_account = signer::address_of(user);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
 
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner: user_account,
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::remove(
+            &mut position_record.positions,
+            position_id
+        );
+
+        positions::destroy_position<Collateral>(position);
     }
 
     public entry fun execute_open_position_order<LP, Collateral, Index, Direction, Fee>() {
