@@ -605,7 +605,98 @@ module perpetual::pool {
         (redeem, event)
     }
 
-    public(friend) fun liquidate_position<Collateral>() {}
+    public(friend) fun liquidate_position<Collateral, Index, Direction>(
+        position: &mut Position<Collateral>,
+        long: bool,
+        lp_supply_amount: Decimal,
+        timestamp: u64,
+        liquidator: address,
+    ): (Coin<Collateral>, LiquidatePositionEvent) acquires Vault, Symbol {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.liquidate_enabled, ERR_LIQUIDATE_DISABLED);
+
+        // refresh vault
+        refresh_vault(vault, timestamp);
+        // refresh symbol
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+
+        let (
+            liquidator_bonus_amount,
+            trader_loss_amount,
+            position_amount,
+            reserved_amount,
+            position_size,
+            reserving_fee_amount,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_liquidator,
+        ) = positions::liquidate_position(
+            position,
+            &collateral_price,
+            &index_price,
+            long,
+            vault.acc_reserving_rate,
+            symbol.acc_funding_rate,
+        );
+
+        // update vault
+        vault.reserved_amount = vault.reserved_amount - reserved_amount;
+        vault.unrealised_reserving_fee_amount = decimal::sub(
+            vault.unrealised_reserving_fee_amount,
+            reserving_fee_amount,
+        );
+        coin::merge(&mut vault.liquidity, to_vault);
+
+        // update symbol
+        symbol.opening_size = decimal::sub(symbol.opening_size, position_size);
+        symbol.opening_amount = symbol.opening_amount - position_amount;
+        symbol.unrealised_funding_fee_value = sdecimal::sub(
+            symbol.unrealised_funding_fee_value,
+            funding_fee_value,
+        );
+        let delta_realised_pnl = sdecimal::sub_with_decimal(
+            sdecimal::from_decimal(
+                true,
+                agg_price::coins_to_value(
+                    &collateral_price,
+                    trader_loss_amount,
+                ),
+            ),
+            // exclude reserving fee
+            reserving_fee_value,
+        );
+        symbol.realised_pnl = sdecimal::add(symbol.realised_pnl, delta_realised_pnl);
+
+        let event = LiquidatePositionEvent {
+            liquidator,
+            collateral_price: agg_price::price_of(&collateral_price),
+            index_price: agg_price::price_of(&index_price),
+            reserving_fee_value,
+            funding_fee_value,
+            delta_realised_pnl,
+            loss_amount: trader_loss_amount,
+            liquidator_bonus_amount,
+        };
+
+        (to_liquidator, event)
+    }
 
     public(friend) fun valuate_vault<Collateral>() {}
 
