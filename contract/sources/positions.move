@@ -396,7 +396,78 @@ module perpetual::positions {
         coin::merge(&mut position.collateral, pledge);
     }
 
-    public(friend) fun redeem_from_postion<Collateral>() {}
+    public(friend) fun redeem_from_position<Collateral>(
+        position: &mut Position<Collateral>,
+        collateral_price: &AggPrice,
+        index_price: &AggPrice,
+        long: bool,
+        redeem_amount: u64,
+        reserving_rate: Rate,
+        funding_rate: SRate,
+        timestamp: u64,
+    ): Coin<Collateral> {
+        assert!(!position.closed, ERR_ALREADY_CLOSED);
+        assert!(
+            redeem_amount > 0
+                && redeem_amount < coin::value(&position.collateral),
+            ERR_INVALID_REDEEM_AMOUNT,
+        );
+
+        // compute delta size
+        let delta_size = compute_delta_size(position, index_price, long);
+
+        // check holding duration
+        let ok = check_holding_duration(position, &delta_size, timestamp);
+        assert!(ok, ERR_HOLDING_DURATION_TOO_SHORT);
+
+        // compute fee
+        let reserving_fee_amount = compute_reserving_fee_amount(position, reserving_rate);
+        let reserving_fee_value = agg_price::coins_to_value(
+            collateral_price,
+            decimal::ceil_u64(reserving_fee_amount),
+        );
+        let funding_fee_value = compute_funding_fee_value(position, funding_rate);
+
+        // impact fee on delta size
+        delta_size = sdecimal::sub(
+            delta_size,
+            sdecimal::add_with_decimal(funding_fee_value, reserving_fee_value),
+        );
+
+        // update position
+        position.reserving_fee_amount = reserving_fee_amount;
+        position.funding_fee_value = funding_fee_value;
+        position.last_reserving_rate = reserving_rate;
+        position.last_funding_rate = funding_rate;
+
+        // redeem
+        let redeem = coin::extract(&mut position.collateral, redeem_amount);
+
+        // compute collateral value
+        let collateral_value = agg_price::coins_to_value(
+            collateral_price,
+            coin::value(&position.collateral),
+        );
+        assert!(
+            decimal::ge(&collateral_value, &position.config.min_collateral_value),
+            ERR_COLLATERAL_VALUE_TOO_LESS,
+        );
+
+        // validate leverage
+        ok = check_leverage(
+            &position.config,
+            collateral_value,
+            position.position_amount,
+            index_price,
+        );
+        assert!(ok, ERR_LEVERAGE_TOO_LARGE);
+
+        // validate liquidation
+        ok = check_liquidation(&position.config, collateral_value, &delta_size);
+        assert!(!ok, ERR_LIQUIDATION_TRIGGERED);
+
+        redeem
+    }
 
     public(friend) fun liquidate_position<Collateral>() {}
 

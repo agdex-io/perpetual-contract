@@ -551,7 +551,59 @@ module perpetual::pool {
         }
     }
 
-    public(friend) fun redeem_from_position<Collateral>() {}
+    public(friend) fun redeem_from_position<Collateral, Index, Direction>(
+        position: &mut Position<Collateral>,
+        long: bool,
+        redeem_amount: u64,
+        lp_supply_amount: Decimal,
+        timestamp: u64
+    ): (Coin<Collateral>, RedeemFromPositionEvent) acquires Vault, Symbol {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+
+        // Pool errors are no need to be catched
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.decrease_enabled, ERR_DECREASE_DISABLED);
+
+        // refresh vault
+        refresh_vault(vault, timestamp);
+        // refresh symbol
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+
+        // redeem
+        let redeem = positions::redeem_from_position(
+            position,
+            &collateral_price,
+            &index_price,
+            long,
+            redeem_amount,
+            vault.acc_reserving_rate,
+            symbol.acc_funding_rate,
+            timestamp,
+        );
+
+        let event = RedeemFromPositionEvent {
+            collateral_price: agg_price::price_of(&collateral_price),
+            index_price: agg_price::price_of(&index_price),
+            redeem_amount,
+        };
+
+        (redeem, event)
+    }
 
     public(friend) fun liquidate_position<Collateral>() {}
 
