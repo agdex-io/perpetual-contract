@@ -480,12 +480,39 @@ module perpetual::market {
             //     event,
             // });
         }
-
-
-
     }
 
-    public entry fun decrease_reserved_from_position<LP, Collateral, Index, Direction>() {
+    public entry fun decrease_reserved_from_position<Collateral, Index, Direction>(
+        user: &signer,
+        decrease_amount: u64,
+        position_num: u64
+    ) acquires PositionRecord {
+        let timestamp = timestamp::now_seconds();
+        let user_account = signer::address_of(user);
+
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner: user_account,
+        };
+
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::borrow_mut(
+            &mut position_record.positions,
+            position_id
+        );
+
+        let event = pool::decrease_reserved_from_position(
+            position,
+            decrease_amount,
+            timestamp
+        );
+
+        //TODO: emit decrease reserved from position
+        // event::emit(PositionClaimed {
+        //     position_name: option::some(position_name),
+        //     event,
+        // });
 
     }
 

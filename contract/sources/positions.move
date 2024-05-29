@@ -365,7 +365,26 @@ module perpetual::positions {
         (position, open_fee, open_fee_amount)
     }
 
-    public(friend) fun decrease_reserved_from_position<Collateral>() {}
+    public(friend) fun decrease_reserved_from_position<Collateral>(
+        position: &mut Position<Collateral>,
+        decrease_amount: u64,
+        reserving_rate: Rate
+    ): Coin<Collateral> {
+        assert!(!position.closed, ERR_ALREADY_CLOSED);
+        assert!(
+            decrease_amount < coin::value(&position.reserved),
+            ERR_INSUFFICIENT_RESERVED,
+        );
+
+        // compute fee
+        let reserving_fee_amount = compute_reserving_fee_amount(position, reserving_rate);
+
+        // update position
+        position.reserving_fee_amount = reserving_fee_amount;
+        position.last_reserving_rate = reserving_rate;
+
+        coin::extract(&mut position.reserved, decrease_amount)
+    }
 
     public(friend) fun pledge_in_position<Collateral>() {}
 

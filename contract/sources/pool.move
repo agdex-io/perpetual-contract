@@ -516,7 +516,28 @@ module perpetual::pool {
 
     }
 
-    public(friend) fun decrease_reserved_from_position<C>() {}
+    public(friend) fun decrease_reserved_from_position<Collateral>(
+        position: &mut Position<Collateral>,
+        decrease_amount: u64,
+        timestamp: u64,
+    ): DecreaseReservedFromPositionEvent acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        // refresh vault
+        refresh_vault(vault, timestamp);
+
+        let decreased_reserved = positions::decrease_reserved_from_position(
+            position,
+            decrease_amount,
+            vault.acc_reserving_rate,
+        );
+
+        // update vault
+        vault.reserved_amount = vault.reserved_amount - decrease_amount;
+        coin::merge(&mut vault.liquidity, decreased_reserved);
+
+        DecreaseReservedFromPositionEvent { decrease_amount }
+
+    }
 
     public(friend) fun pledge_in_position<Collateral>() {}
 
