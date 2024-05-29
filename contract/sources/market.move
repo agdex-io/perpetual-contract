@@ -516,8 +516,31 @@ module perpetual::market {
 
     }
 
-    public entry fun pledge_in_position<LP, Collatreal, Index, Direction>() {
+    public entry fun pledge_in_position<Collateral, Index, Direction>(
+        user: &signer,
+        pledge_num: u64,
+        position_num: u64,
+    ) acquires PositionRecord  {
+        let user_account = signer::address_of(user);
 
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner: user_account
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::borrow_mut(
+            &mut position_record.positions,
+            position_id
+        );
+
+        let event = pool::pledge_in_position(position, coin::withdraw<Collateral>(user, pledge_num));
+
+        // TODO: emit pledge in position
+        // event::emit(PositionClaimed {
+        //     position_name: option::some(position_name),
+        //     event,
+        // });
     }
 
     public entry fun redeem_from_position<LP, Collateral, Index, Direction>() {

@@ -386,7 +386,15 @@ module perpetual::positions {
         coin::extract(&mut position.reserved, decrease_amount)
     }
 
-    public(friend) fun pledge_in_position<Collateral>() {}
+    public(friend) fun pledge_in_position<Collateral>(
+        position: &mut Position<Collateral>,
+        pledge: Coin<Collateral>
+    ) {
+        assert!(!position.closed, ERR_ALREADY_CLOSED);
+        // handle pledge
+        assert!(coin::value(&pledge) > 0, ERR_INVALID_PLEDGE);
+        coin::merge(&mut position.collateral, pledge);
+    }
 
     public(friend) fun redeem_from_postion<Collateral>() {}
 

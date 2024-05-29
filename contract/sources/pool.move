@@ -539,7 +539,17 @@ module perpetual::pool {
 
     }
 
-    public(friend) fun pledge_in_position<Collateral>() {}
+    public(friend) fun pledge_in_position<Collateral>(
+        position: &mut Position<Collateral>,
+        pledge: Coin<Collateral>,
+    ): PledgeInPositionEvent{
+        let pledge_amount = coin::value(&pledge);
+
+        positions::pledge_in_position<Collateral>(position, pledge);
+        PledgeInPositionEvent {
+            pledge_amount
+        }
+    }
 
     public(friend) fun redeem_from_position<Collateral>() {}
 
