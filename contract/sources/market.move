@@ -568,11 +568,6 @@ module perpetual::market {
             position_id
         );
 
-        let index_price = agg_price::parse_pyth_feeder(
-            &pool::symbol_price_config<Index, Direction>(),
-            timestamp
-        );
-
         let (redeem, event) = pool::redeem_from_position<Collateral, Index, Direction>(
             position,
             long,
@@ -591,7 +586,46 @@ module perpetual::market {
 
     }
 
-    public entry fun liquidate_position<Collateral, Index, Direction>() {
+    public entry fun liquidate_position<Collateral, Index, Direction>(
+        liquidator: &signer,
+        owner: address,
+        position_num: u64,
+    ) acquires Market, PositionRecord {
+        let liquidator_account = signer::address_of(liquidator);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
+
+
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let long = parse_direction<Direction>();
+
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner,
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::borrow_mut(
+            &mut position_record.positions,
+            position_id
+        );
+
+        let (liquidation_fee, event) = pool::liquidate_position<Collateral, Index, Direction>(
+            position,
+            long,
+            lp_supply_amount,
+            timestamp,
+            liquidator_account,
+        );
+
+        coin::deposit(liquidator_account, liquidation_fee);
+
+        // TODO: emit liquidate position
+        // event::emit(PositionClaimed {
+        //     position_name: option::some(position_name),
+        //     event,
+        // });
 
     }
 

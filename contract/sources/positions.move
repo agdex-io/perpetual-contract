@@ -469,7 +469,93 @@ module perpetual::positions {
         redeem
     }
 
-    public(friend) fun liquidate_position<Collateral>() {}
+    public(friend) fun liquidate_position<Collateral>(
+        position: &mut Position<Collateral>,
+        collateral_price: &AggPrice,
+        index_price: &AggPrice,
+        long: bool,
+        reserving_rate: Rate,
+        funding_rate: SRate,
+    ): (
+        u64,
+        u64,
+        u64,
+        u64,
+        Decimal,
+        Decimal,
+        Decimal,
+        SDecimal,
+        Coin<Collateral>,
+        Coin<Collateral>,
+    ) {
+        assert!(!position.closed, ERR_ALREADY_CLOSED);
+
+        // compute delta size
+        let delta_size = compute_delta_size(position, index_price, long);
+
+        // compute fee
+        let reserving_fee_amount = compute_reserving_fee_amount(position, reserving_rate);
+        let reserving_fee_value = agg_price::coins_to_value(
+            collateral_price,
+            decimal::ceil_u64(reserving_fee_amount),
+        );
+        let funding_fee_value = compute_funding_fee_value(position, funding_rate);
+
+        // impact fee on delta size
+        delta_size = sdecimal::sub(
+            delta_size,
+            sdecimal::add_with_decimal(funding_fee_value, reserving_fee_value),
+        );
+
+        // compute collateral value
+        let collateral_value = agg_price::coins_to_value(
+            collateral_price,
+            coin::value(&position.collateral),
+        );
+
+        // liquidation check
+        let ok = check_liquidation(&position.config, collateral_value, &delta_size);
+        assert!(ok, ERR_LIQUIDATION_NOT_TRIGGERED);
+
+        let position_amount = position.position_amount;
+        let position_size = position.position_size;
+        let collateral_amount = coin::value(&position.collateral);
+        let reserved_amount = coin::value(&position.reserved);
+
+        // update position
+        position.closed = true;
+        position.position_amount = 0;
+        position.position_size = decimal::zero();
+        position.reserving_fee_amount = decimal::zero();
+        position.funding_fee_value = sdecimal::zero();
+        position.last_funding_rate = funding_rate;
+        position.last_reserving_rate = reserving_rate;
+
+        // compute liquidation bonus
+        let bonus_amount = decimal::floor_u64(
+            decimal::mul_with_rate(
+                decimal::from_u64(collateral_amount),
+                position.config.liquidation_bonus,
+            )
+        );
+
+        let to_liquidator = coin::extract(&mut position.collateral, bonus_amount);
+        let to_vault = coin::extract_all(&mut position.reserved);
+        coin::merge(&mut to_vault, coin::extract_all(&mut position.collateral));
+
+        (
+            bonus_amount,
+            collateral_amount,
+            position_amount,
+            reserved_amount,
+            position_size,
+            reserving_fee_amount,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_liquidator,
+        )
+    }
 
     public(friend) fun destroy_position<Collateral>() {}
 
