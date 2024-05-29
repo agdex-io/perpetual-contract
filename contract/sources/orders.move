@@ -27,7 +27,7 @@ module perpetual::orders {
         created_at: u64,
         take_profit: bool,
         decrease_amount: u64,
-        limited_index_price: Decimal,
+        limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         fee: Coin<CoinType>,
     }
@@ -57,7 +57,34 @@ module perpetual::orders {
     }
 
 
-    public(friend) fun new_decrease_position_order<Fee>() {}
+    public(friend) fun new_decrease_position_order<Fee>(
+        timestamp: u64,
+        take_profit: bool,
+        decrease_amount: u64,
+        limited_index_price: AggPrice,
+        collateral_price_threshold: Decimal,
+        fee: Coin<Fee>,
+    ): DecreasePositionOrder<Fee> {
+        // let event = CreateDecreasePositionOrderEvent {
+        //     take_profit,
+        //     decrease_amount,
+        //     limited_index_price: agg_price::price_of(&limited_index_price),
+        //     collateral_price_threshold,
+        //     fee_amount: balance::value(&fee),
+        // };
+        let order = DecreasePositionOrder {
+            executed: false,
+            created_at: timestamp,
+            take_profit,
+            decrease_amount,
+            limited_index_price,
+            collateral_price_threshold,
+            fee,
+        };
+
+        // (order, event)
+        order
+    }
 
     public(friend) fun execute_open_position_order<Collateral, Fee>() {}
 

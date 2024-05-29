@@ -5,7 +5,7 @@ module perpetual::market {
     use std::string::String;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Self, Symbol};
+    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
@@ -59,7 +59,7 @@ module perpetual::market {
     struct OrderRecord<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has key {
         creation_num: u64,
         open_orders: Table<OrderId<CoinType, Index, Direction, Fee>, OpenPositionOrder<CoinType, Fee>>,
-        decrease_orders: Table<OrderId<CoinType, Index, Direction, Fee>, DecreasePositionOrder<CoinType>>
+        decrease_orders: Table<OrderId<CoinType, Index, Direction, Fee>, DecreasePositionOrder<Fee>>
     }
 
     // === Errors ===
@@ -215,7 +215,7 @@ module perpetual::market {
             move_to(admin, OrderRecord<Collateral, Index, Direction, AptosCoin>{
                 creation_num: 0,
                 open_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, OpenPositionOrder<Collateral, AptosCoin>>(),
-                decrease_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, DecreasePositionOrder<Collateral>>()
+                decrease_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, DecreasePositionOrder<AptosCoin>>()
             })
         };
     }
@@ -372,7 +372,116 @@ module perpetual::market {
         }
     }
 
-    public entry fun decrease_position<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun decrease_position<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        trade_level: u8,
+        fee_amount: u64,
+        take_profit: bool,
+        decrease_amount: u64,
+        collateral_price_threshold: u256,
+        limited_index_price: u256,
+        position_num: u64
+    ) acquires Market, PositionRecord, OrderRecord {
+        let user_account = signer::address_of(user);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
+        let lp_supply_amount = lp_supply_amount();
+        let timestamp = timestamp::now_seconds();
+        let long = parse_direction<Direction>();
+
+        let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
+        let index_price = agg_price::parse_pyth_feeder(
+            &pool::symbol_price_config<Index, Direction>(),
+            timestamp
+        );
+        let limited_index_price = agg_price::from_price(
+            &pool::symbol_price_config<Index, Direction>(),
+            decimal::from_raw(limited_index_price),
+        );
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner: user_account
+        };
+
+        // check if limit order can be placed
+        let placed = if (long) {
+            decimal::lt(
+                &agg_price::price_of(&index_price),
+                &agg_price::price_of(&limited_index_price),
+            )
+        } else {
+            decimal::gt(
+                &agg_price::price_of(&index_price),
+                &agg_price::price_of(&limited_index_price),
+            )
+        };
+
+        // Decrease order is allowed to create:
+        // 1: limit order can be placed
+        // 2: limit order can not placed, but it must be a stop loss order
+        if (placed || !take_profit) {
+            assert!(trade_level < 2, ERR_CAN_NOT_CREATE_ORDER);
+
+            let order = orders::new_decrease_position_order(
+                timestamp,
+                take_profit,
+                decrease_amount,
+                limited_index_price,
+                collateral_price_threshold,
+                coin::withdraw<Fee>(user, fee_amount),
+            );
+            // add order into record
+            let order_record =
+                borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+            table::add(&mut order_record.decrease_orders, OrderId<Collateral, Index, Direction, Fee>{
+                id: order_record.creation_num,
+                owner: user_account
+            }, order);
+            order_record.creation_num = order_record.creation_num + 1;
+
+            //TODO: emit order created
+            // event::emit(OrderCreated { order_name, event });
+        } else {
+            assert!(trade_level > 0, ERR_CAN_NOT_TRADE_IMMEDIATELY);
+
+            let position_record =
+                borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+            let position  = table::borrow_mut(
+                &mut position_record.positions,
+                position_id
+            );
+
+            let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
+            let (code, result, _) = pool::decrease_position<Collateral, Index, Direction>(
+                position,
+                collateral_price_threshold,
+                rebate_rate,
+                long,
+                decrease_amount,
+                lp_supply_amount,
+                timestamp,
+            );
+            // should panic when the owner execute the order
+            assert!(code == 0, code);
+
+            let res = option::destroy_some(result);
+            let (to_trader, rebate, event) =
+                pool::unwrap_decrease_position_result<Collateral>(res);
+
+            coin::deposit<Collateral>(user_account, to_trader);
+            coin::deposit<Collateral>(referrer, rebate);
+
+            // no need coin operate here
+            // transfer::public_transfer(fee, owner);
+
+            //TODO: emit decrease position
+            // event::emit(PositionClaimed {
+            //     position_name: option::some(position_name),
+            //     event,
+            // });
+        }
+
+
 
     }
 

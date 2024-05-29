@@ -183,7 +183,179 @@ module perpetual::positions {
         (OK, option::some(result))
     }
 
-    public(friend) fun decrease_position<Collateral>() {}
+    public(friend) fun decrease_position<Collateral>(
+        position: &mut Position<Collateral>,
+        collateral_price: &AggPrice,
+        index_price: &AggPrice,
+        collateral_price_threshold: Decimal,
+        long: bool,
+        decrease_amount: u64,
+        reserving_rate: Rate,
+        funding_rate: SRate,
+        timestamp: u64,
+    ): (u64, Option<DecreasePositionResult<Collateral>>) {
+        if (position.closed) {
+            return (ERR_ALREADY_CLOSED, option::none())
+        };
+        if (
+            decimal::lt(
+                &agg_price::price_of(collateral_price),
+                &collateral_price_threshold,
+            )
+        ) {
+            return (ERR_COLLATERAL_PRICE_EXCEED_THRESHOLD, option::none())
+        };
+        if (
+            decrease_amount == 0 || decrease_amount > position.position_amount
+        ) {
+            return (ERR_INVALID_DECREASE_AMOUNT, option::none())
+        };
+
+        let decrease_size = decimal::div_by_u64(
+            decimal::mul_with_u64(position.position_size, decrease_amount),
+            position.position_amount,
+        );
+
+        // compute delta size
+        let delta_size = compute_delta_size(position, index_price, long);
+        let settled_delta_size = sdecimal::div_by_u64(
+            sdecimal::mul_with_u64(delta_size, decrease_amount),
+            position.position_amount,
+        );
+        delta_size = sdecimal::sub(delta_size, settled_delta_size);
+
+        // check holding duration
+        let ok = check_holding_duration(position, &delta_size, timestamp);
+        if (!ok) {
+            return (ERR_HOLDING_DURATION_TOO_SHORT, option::none())
+        };
+
+        // compute fee
+        let reserving_fee_amount = compute_reserving_fee_amount(position, reserving_rate);
+        let reserving_fee_value = agg_price::coins_to_value(
+            collateral_price,
+            decimal::ceil_u64(reserving_fee_amount),
+        );
+        let funding_fee_value = compute_funding_fee_value(position, funding_rate);
+        let decrease_fee_value = decimal::mul_with_rate(
+            decrease_size,
+            position.config.decrease_fee_bps,
+        );
+
+        // impact fee on settled delta size
+        settled_delta_size = sdecimal::sub(
+            settled_delta_size,
+            sdecimal::add_with_decimal(
+                funding_fee_value,
+                decimal::add(decrease_fee_value, reserving_fee_value),
+            ),
+        );
+
+        let closed = decrease_amount == position.position_amount;
+
+        // handle settlement
+        let has_profit = sdecimal::is_positive(&settled_delta_size);
+        let settled_amount = agg_price::value_to_coins(
+            collateral_price,
+            sdecimal::value(&settled_delta_size),
+        );
+        let settled_amount = if (has_profit) {
+            let profit_amount = decimal::floor_u64(settled_amount);
+            if (profit_amount >= coin::value(&position.reserved)) {
+                // should close position if reserved is not enough to pay profit
+                closed = true;
+                profit_amount = coin::value(&position.reserved);
+            };
+
+            profit_amount
+        } else {
+            let loss_amount = decimal::ceil_u64(settled_amount);
+            if (loss_amount >= coin::value(&position.collateral)) {
+                // should close position if collateral is not enough to pay loss
+                closed = true;
+                loss_amount = coin::value(&position.collateral);
+            };
+
+            loss_amount
+        };
+        let decreased_reserved_amount = if (closed) {
+            coin::value(&position.reserved)
+        } else {
+            if (has_profit) { settled_amount } else { 0 }
+        };
+
+        let position_amount = position.position_amount - decrease_amount;
+        let position_size = decimal::sub(position.position_size, decrease_size);
+
+        // should check the position if not closed
+        if (!closed) {
+            // compute collateral value
+            let collateral_value = agg_price::coins_to_value(
+                collateral_price,
+                if (has_profit) {
+                    coin::value(&position.collateral)
+                } else {
+                    coin::value(&position.collateral) - settled_amount
+                },
+            );
+            if (decimal::lt(&collateral_value, &position.config.min_collateral_value)) {
+                return (ERR_COLLATERAL_VALUE_TOO_LESS, option::none())
+            };
+
+            // validate leverage
+            ok = check_leverage(&position.config, collateral_value, position_amount, index_price);
+            if (!ok) {
+                return (ERR_LEVERAGE_TOO_LARGE, option::none())
+            };
+
+            // check liquidation
+            ok = check_liquidation(&position.config, collateral_value, &delta_size);
+            if (ok) {
+                return (ERR_LIQUIDATION_TRIGGERED, option::none())
+            };
+        };
+
+        // update position
+        position.closed = closed;
+        position.position_amount = position_amount;
+        position.position_size = position_size;
+        position.reserving_fee_amount = decimal::zero();
+        position.funding_fee_value = sdecimal::zero();
+        position.last_funding_rate = funding_rate;
+        position.last_reserving_rate = reserving_rate;
+
+        let (to_vault, to_trader) = if (has_profit) {
+            (
+                coin::zero(),
+                coin::extract(&mut position.reserved, settled_amount),
+            )
+        } else {
+            (
+                coin::extract(&mut position.collateral, settled_amount),
+                coin::zero(),
+            )
+        };
+
+        if (closed) {
+            coin::merge(&mut to_vault, coin::extract_all(&mut position.reserved));
+            coin::merge(&mut to_trader, coin::extract_all(&mut position.collateral));
+        };
+
+        let result = DecreasePositionResult {
+            closed,
+            has_profit,
+            settled_amount,
+            decreased_reserved_amount,
+            decrease_size,
+            reserving_fee_amount,
+            decrease_fee_value,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_trader,
+        };
+        (OK, option::some(result))
+    }
 
     public(friend) fun unwrap_open_position_result<C>(
         res: OpenPositionResult<C>,
@@ -245,5 +417,106 @@ module perpetual::positions {
 
     public fun collateral_amount<C>(position: &Position<C>): u64 {
         coin::value(&position.collateral)
+    }
+
+    // delta_size = |amount * new_price - size|
+    public fun compute_delta_size<C>(
+        position: &Position<C>,
+        index_price: &AggPrice,
+        long: bool,
+    ): SDecimal {
+        let latest_size = agg_price::coins_to_value(
+            index_price,
+            position.position_amount,
+        );
+        let cmp = decimal::gt(&latest_size, &position.position_size);
+        let (has_profit, delta) = if (cmp) {
+            (long, decimal::sub(latest_size, position.position_size))
+        } else {
+            (!long, decimal::sub(position.position_size, latest_size))
+        };
+
+        sdecimal::from_decimal(has_profit, delta)
+    }
+
+    public fun check_holding_duration<C>(
+        position: &Position<C>,
+        delta_size: &SDecimal,
+        timestamp: u64,
+    ): bool {
+        !sdecimal::is_positive(delta_size)
+            || position.open_timestamp
+            + position.config.min_holding_duration <= timestamp
+    }
+
+    public fun compute_reserving_fee_amount<C>(
+        position: &Position<C>,
+        reserving_rate: Rate,
+    ): Decimal {
+        let delta_fee = decimal::mul_with_rate(
+            decimal::from_u64(coin::value(&position.reserved)),
+            rate::sub(reserving_rate, position.last_reserving_rate),
+        );
+        decimal::add(position.reserving_fee_amount, delta_fee)
+    }
+
+    public fun compute_funding_fee_value<C>(
+        position: &Position<C>,
+        funding_rate: SRate,
+    ): SDecimal {
+        let delta_rate = srate::sub(
+            funding_rate,
+            position.last_funding_rate,
+        );
+        let delta_fee = sdecimal::from_decimal(
+            srate::is_positive(&delta_rate),
+            decimal::mul_with_rate(
+                position.position_size,
+                srate::value(&delta_rate),
+            ),
+        );
+        sdecimal::add(position.funding_fee_value, delta_fee)
+    }
+
+    public(friend) fun unwrap_decrease_position_result<Collateral>(res: DecreasePositionResult<Collateral>): (
+        bool,
+        bool,
+        u64,
+        u64,
+        Decimal,
+        Decimal,
+        Decimal,
+        Decimal,
+        SDecimal,
+        Coin<Collateral>,
+        Coin<Collateral>,
+    ) {
+        let DecreasePositionResult {
+            closed,
+            has_profit,
+            settled_amount,
+            decreased_reserved_amount,
+            decrease_size,
+            reserving_fee_amount,
+            decrease_fee_value,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_trader,
+        } = res;
+
+        (
+            closed,
+            has_profit,
+            settled_amount,
+            decreased_reserved_amount,
+            decrease_size,
+            reserving_fee_amount,
+            decrease_fee_value,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_trader,
+        )
     }
 }

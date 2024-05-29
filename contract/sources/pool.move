@@ -372,9 +372,149 @@ module perpetual::pool {
         (position, rebate, event)
     }
 
-    public(friend) fun decrease_position<Collateral>() {}
+    public(friend) fun unwrap_decrease_position_result<C>(res: DecreasePositionResult<C>): (
+        Coin<C>,
+        Coin<C>,
+        DecreasePositionSuccessEvent,
+    ) {
+        let DecreasePositionResult {
+            to_trader,
+            rebate,
+            event,
+        } = res;
 
-    public(friend) fun unwrap_decrease_position_result<C>() {}
+        (to_trader, rebate, event)
+    }
+
+    public(friend) fun decrease_position<Collateral, Index, Direction>(
+        position: &mut Position<Collateral>,
+        collateral_price_threshold: Decimal,
+        rebate_rate: Rate,
+        long: bool,
+        decrease_amount: u64,
+        lp_supply_amount: Decimal,
+        timestamp: u64
+    ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>) acquires Vault, Symbol {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+
+        // Pool errors are no need to be catched
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.decrease_enabled, ERR_DECREASE_DISABLED);
+
+        // refresh vault
+        refresh_vault(vault, timestamp);
+        // refresh symbol
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+
+        // decrease position
+        let (code, result) = positions::decrease_position<Collateral>(
+            position,
+            &collateral_price,
+            &index_price,
+            collateral_price_threshold,
+            long,
+            decrease_amount,
+            vault.acc_reserving_rate,
+            symbol.acc_funding_rate,
+            timestamp,
+        );
+        if (code > 0) {
+            option::destroy_none(result);
+
+            let event = DecreasePositionFailedEvent {
+                collateral_price: agg_price::price_of(&collateral_price),
+                index_price: agg_price::price_of(&index_price),
+                decrease_amount,
+                code,
+            };
+            return (code, option::none(), option::some(event))
+        };
+
+        let (
+            closed,
+            has_profit,
+            settled_amount,
+            decreased_reserved_amount,
+            decrease_size,
+            reserving_fee_amount,
+            decrease_fee_value,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault,
+            to_trader,
+        ) = positions::unwrap_decrease_position_result(option::destroy_some(result));
+
+        // compute rebate
+        let rebate_value = decimal::mul_with_rate(decrease_fee_value, rebate_rate);
+        let rebate_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, rebate_value)
+        );
+
+        // update vault
+        vault.reserved_amount = vault.reserved_amount - decreased_reserved_amount;
+        vault.unrealised_reserving_fee_amount = decimal::sub(
+            vault.unrealised_reserving_fee_amount,
+            reserving_fee_amount,
+        );
+        coin::merge(&mut vault.liquidity, to_vault);
+        assert!(coin::value(&vault.liquidity) > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
+        let rebate = coin::extract(&mut vault.liquidity, rebate_amount);
+
+        // update symbol
+        symbol.opening_size = decimal::sub(symbol.opening_size, decrease_size);
+        symbol.opening_amount = symbol.opening_amount - decrease_amount;
+        symbol.unrealised_funding_fee_value = sdecimal::sub(
+            symbol.unrealised_funding_fee_value,
+            funding_fee_value,
+        );
+        let delta_realised_pnl = sdecimal::sub_with_decimal(
+            sdecimal::from_decimal(
+                !has_profit,
+                agg_price::coins_to_value(&collateral_price, settled_amount),
+            ),
+            // exclude: decrease fee - rebate + reserving fee
+            decimal::add(
+                decimal::sub(decrease_fee_value, rebate_value),
+                reserving_fee_value,
+            ),
+        );
+        symbol.realised_pnl = sdecimal::add(symbol.realised_pnl, delta_realised_pnl);
+
+        let result = DecreasePositionResult {
+            to_trader,
+            rebate,
+            event: DecreasePositionSuccessEvent {
+                collateral_price: agg_price::price_of(&collateral_price),
+                index_price: agg_price::price_of(&index_price),
+                decrease_amount,
+                decrease_fee_value,
+                reserving_fee_value,
+                funding_fee_value,
+                delta_realised_pnl,
+                closed,
+                has_profit,
+                settled_amount,
+                rebate_amount,
+            },
+        };
+        (code, option::some(result), option::none())
+
+    }
 
     public(friend) fun decrease_reserved_from_position<C>() {}
 
