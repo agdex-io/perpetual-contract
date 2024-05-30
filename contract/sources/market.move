@@ -735,7 +735,83 @@ module perpetual::market {
         coin::deposit(executor_account, fee);
     }
 
-    public entry fun execute_decrease_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun execute_decrease_position_order<Collateral, Index, Direction, Fee>(
+        executor: &signer,
+        owner: address,
+        order_num: u64,
+        position_num: u64,
+    ) acquires Market, OrderRecord, PositionRecord {
+        let executor_account = signer::address_of(executor);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
+
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let long = parse_direction<Direction>();
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner,
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::borrow_mut(&mut order_record.decrease_orders, order_id);
+
+        let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner,
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::borrow_mut(
+            &mut position_record.positions,
+            position_id
+        );
+        let (code, result, failure, fee) =
+            orders::execute_decrease_position_order<Collateral, Index, Direction, Fee>(
+                order,
+                position,
+                rebate_rate,
+                long,
+                lp_supply_amount,
+                timestamp,
+        );
+        if (code == 0) {
+            let (to_trader, rebate, event) =
+                pool::unwrap_decrease_position_result(option::destroy_some(result));
+
+            coin::deposit(owner, to_trader);
+            coin::deposit(referrer, rebate);
+
+            //TODO: emit order executed and position decreased
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::some(position_name),
+            //         event,
+            //     },
+            // });
+        } else {
+            // executed order failed
+            option::destroy_none(result);
+            let event = option::destroy_some(failure);
+
+            //TODO: assert! maybe abort directly?
+
+            // TODO: emit order executed and decrease closed
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::some(position_name),
+            //         event,
+            //     },
+            // });
+        };
+
+        coin::deposit(executor_account, fee);
 
     }
 

@@ -6,9 +6,9 @@ module perpetual::orders {
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
     use perpetual::sdecimal::{Self, SDecimal};
-    use perpetual::positions::{PositionConfig};
+    use perpetual::positions::{Position, PositionConfig};
     use perpetual::agg_price::{AggPrice};
-    use perpetual::pool::{Self, Vault, Symbol, OpenPositionResult, DecreasePositionResult, OpenPositionFailedEvent} ;
+    use perpetual::pool::{Self, Vault, Symbol, OpenPositionResult, DecreasePositionResult, OpenPositionFailedEvent, DecreasePositionFailedEvent} ;
     use perpetual::agg_price;
 
     friend perpetual::market;
@@ -157,9 +157,61 @@ module perpetual::orders {
         (code, collateral, result, failure, fee)
     }
 
-    public(friend) fun destroy_open_position_order<Collateral, Fee>() {}
+    public(friend) fun execute_decrease_position_order<Collateral, Index, Direction, Fee>(
+        order: &mut DecreasePositionOrder<Fee>,
+        position: &mut Position<Collateral>,
+        rebate_rate: Rate,
+        long: bool,
+        lp_supply_amount: Decimal,
+        timestamp: u64
+    ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>, Coin<Fee>) {
+        assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
+        let index_price = agg_price::parse_pyth_feeder(
+            &pool::symbol_price_config<Index, Direction>(),
+            timestamp
+        );
+        if ((long && order.take_profit) || (!long && !order.take_profit)) {
+            assert!(
+                decimal::ge(
+                    &agg_price::price_of(&index_price),
+                    &agg_price::price_of(&order.limited_index_price),
+                ),
+                ERR_INDEX_PRICE_NOT_TRIGGERED,
+            );
+        } else {
+            assert!(
+                decimal::le(
+                    &agg_price::price_of(&index_price),
+                    &agg_price::price_of(&order.limited_index_price),
+                ),
+                ERR_INDEX_PRICE_NOT_TRIGGERED,
+            );
+        };
 
-    public(friend) fun execute_decrease_position_order<Collateral, Fee>() {}
+        let index_price = agg_price::parse_pyth_feeder(
+            &pool::symbol_price_config<Index, Direction>(),
+            timestamp
+        );
+        // update order status
+        order.executed = true;
+        // withdraw fee
+        let fee = coin::extract_all(&mut order.fee);
+        // decrease position in pool
+        let (code, result, failure) =
+            pool::decrease_position<Collateral, Index, Direction>(
+                position,
+                order.collateral_price_threshold,
+                rebate_rate,
+                long,
+                order.decrease_amount,
+                lp_supply_amount,
+                timestamp,
+        );
+
+        (code, result, failure, fee)
+    }
+
+    public(friend) fun destroy_open_position_order<Collateral, Fee>() {}
 
     public(friend) fun destory_decrease_position_order<Fee>() {}
 
