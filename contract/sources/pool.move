@@ -13,10 +13,9 @@ module perpetual::pool {
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
-    use pyth::price;
-    use aptos_std::big_vector::borrow;
 
     friend perpetual::market;
+    friend perpetual::orders;
 
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,

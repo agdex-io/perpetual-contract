@@ -1,7 +1,7 @@
 module perpetual::market {
 
     use std::signer;
-    use std::option;
+    use std::option::{Self, Option};
     use std::string::String;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
@@ -43,7 +43,7 @@ module perpetual::market {
 
     struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
         id: u64,
-        owner: address
+        owner: address,
     }
 
     struct PositionId<phantom CoinType, phantom Index, phantom Direction> has store, copy, drop {
@@ -651,8 +651,88 @@ module perpetual::market {
         positions::destroy_position<Collateral>(position);
     }
 
-    public entry fun execute_open_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
+        executor: &signer,
+        owner: address,
+        order_num: u64,
+    ) acquires Market, PositionRecord, OrderRecord {
+        let executor_account = signer::address_of(executor);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
 
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let long = parse_direction<Direction>();
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner,
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::borrow_mut(&mut order_record.open_orders, order_id);
+
+        let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
+        let (
+            code, collateral,
+            result,
+            failure,
+            fee
+        ) = orders::execute_open_position_order<Collateral, Index, Direction, Fee>(
+            order,
+            rebate_rate,
+            long,
+            lp_supply_amount,
+            timestamp,
+        );
+        if (code == 0) {
+            let (position, rebate, event) =
+                pool::unwrap_open_position_result(option::destroy_some(result));
+
+            let position_record =
+                borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+            let position_id = PositionId<Collateral, Index, Direction> {
+                id: position_record.creation_num,
+                owner: order_id.owner,
+            };
+            table::add(
+                &mut position_record.positions,
+                position_id,
+                position
+            );
+            position_record.creation_num = position_record.creation_num + 1;
+
+            coin::deposit(referrer, rebate);
+
+            //TODO: emit order executed and open opened
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::some(position_name),
+            //         event,
+            //     },
+            // });
+        } else {
+            // executed order failed
+
+            option::destroy_none(result);
+            let event = option::destroy_some(failure);
+            //TODO: maybe should panic here directly?
+            assert!(code == 0, code);
+            // emit order executed and open failed
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::none<PositionName<C, I, D>>(),
+            //         event,
+            //     },
+            // });
+        };
+        // TODO: check currency here
+        coin::destroy_zero(collateral);
+        coin::deposit(executor_account, fee);
     }
 
     public entry fun execute_decrease_position_order<LP, Collateral, Index, Direction, Fee>() {
