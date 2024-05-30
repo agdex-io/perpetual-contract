@@ -815,11 +815,47 @@ module perpetual::market {
 
     }
 
-    public entry fun clear_open_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun clear_open_position_order<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        order_num: u64,
+    ) acquires OrderRecord {
+        let user_account = signer::address_of(user);
 
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.open_orders, order_id);
+        let (collateral, fee) = orders::destroy_open_position_order(order);
+
+        //TODO: emit order cleared
+        // event::emit(OrderCleared { order_name });
+
+        coin::deposit(user_account, collateral);
+        coin::deposit(user_account, fee);
     }
 
-    public entry fun clear_decrease_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun clear_decrease_position_order<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        order_num: u64
+    ) acquires OrderRecord {
+        let user_account = signer::address_of(user);
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.decrease_orders, order_id);
+        let fee = orders::destory_decrease_position_order(order);
+
+        //TODO: emit order cleared
+        // event::emit(OrderCleared { order_name });
+
+        coin::deposit(user_account, fee);
 
     }
 

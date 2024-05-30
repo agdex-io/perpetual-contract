@@ -211,9 +211,39 @@ module perpetual::orders {
         (code, result, failure, fee)
     }
 
-    public(friend) fun destroy_open_position_order<Collateral, Fee>() {}
+    public(friend) fun destroy_open_position_order<Collateral, Fee>(
+        order: OpenPositionOrder<Collateral, Fee>
+    ): (Coin<Collateral>, Coin<Fee>) {
+        let OpenPositionOrder {
+            executed: _,
+            created_at: _,
+            open_amount: _,
+            reserve_amount: _,
+            limited_index_price: _,
+            collateral_price_threshold: _,
+            position_config: _,
+            collateral,
+            fee,
+        } = order;
 
-    public(friend) fun destory_decrease_position_order<Fee>() {}
+        (collateral, fee)
+    }
+
+    public(friend) fun destory_decrease_position_order<Fee>(
+        order: DecreasePositionOrder<Fee>
+    ): Coin<Fee> {
+        let DecreasePositionOrder {
+            executed: _,
+            created_at: _,
+            take_profit: _,
+            decrease_amount: _,
+            limited_index_price: _,
+            collateral_price_threshold: _,
+            fee,
+        } = order;
+
+        fee
+    }
 
 
 }
