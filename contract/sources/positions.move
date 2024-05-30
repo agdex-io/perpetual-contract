@@ -557,7 +557,26 @@ module perpetual::positions {
         )
     }
 
-    public(friend) fun destroy_position<Collateral>() {}
+    public(friend) fun destroy_position<Collateral>(position: Position<Collateral>) {
+        // unwrap position
+        let Position {
+            closed,
+            config: _,
+            open_timestamp: _,
+            position_amount: _,
+            position_size: _,
+            reserving_fee_amount: _,
+            funding_fee_value: _,
+            last_reserving_rate: _,
+            last_funding_rate: _,
+            reserved,
+            collateral,
+        } = position;
+        assert!(closed, ERR_POSITION_NOT_CLOSED);
+
+        coin::destroy_zero(reserved);
+        coin::destroy_zero(collateral);
+    }
 
     public fun check_leverage(
         config: &PositionConfig,

@@ -1,14 +1,20 @@
 module perpetual::orders {
 
-    use aptos_framework::coin::Coin;
+    use std::option::{Self, Option};
+    use aptos_framework::coin::{Self, Coin};
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
     use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{PositionConfig};
     use perpetual::agg_price::{AggPrice};
+    use perpetual::pool::{Self, Vault, Symbol, OpenPositionResult, DecreasePositionResult, OpenPositionFailedEvent} ;
+    use perpetual::agg_price;
 
     friend perpetual::market;
+
+    const ERR_ORDER_ALREADY_EXECUTED: u64 = 1;
+    const ERR_INDEX_PRICE_NOT_TRIGGERED: u64 = 2;
 
     struct OpenPositionOrder<phantom CoinType, phantom Fee> has store {
         executed: bool,
@@ -30,6 +36,26 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         fee: Coin<CoinType>,
+    }
+
+    // === Events ===
+
+    struct CreateOpenPositionOrderEvent has copy, drop {
+        open_amount: u64,
+        reserve_amount: u64,
+        limited_index_price: Decimal,
+        collateral_price_threshold: Decimal,
+        position_config: PositionConfig,
+        collateral_amount: u64,
+        fee_amount: u64,
+    }
+
+    struct CreateDecreasePositionOrderEvent has copy, drop {
+        take_profit: bool,
+        decrease_amount: u64,
+        limited_index_price: Decimal,
+        collateral_price_threshold: Decimal,
+        fee_amount: u64,
     }
 
     public(friend) fun new_open_position_order<Collateral, Fee>(
@@ -86,7 +112,50 @@ module perpetual::orders {
         order
     }
 
-    public(friend) fun execute_open_position_order<Collateral, Fee>() {}
+    public(friend) fun execute_open_position_order<Collateral, Index, Direction, Fee>(
+        order: &mut OpenPositionOrder<Collateral, Fee>,
+        rebate_rate: Rate,
+        long: bool,
+        lp_supply_amount: Decimal,
+        timestamp: u64,
+    ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>, Coin<Fee>) {
+        assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
+        let index_price = agg_price::parse_pyth_feeder(
+            &pool::symbol_price_config<Index, Direction>(),
+            timestamp
+        );
+        if (long) {
+            assert!(
+                decimal::le(&agg_price::price_of(&index_price), &agg_price::price_of(&order.limited_index_price)),
+                ERR_INDEX_PRICE_NOT_TRIGGERED,
+            );
+        } else {
+            assert!(
+                decimal::ge(&agg_price::price_of(&index_price), &agg_price::price_of(&order.limited_index_price)),
+                ERR_INDEX_PRICE_NOT_TRIGGERED,
+            );
+        };
+
+        // update order status
+        order.executed = true;
+        // withdraw fee
+        let fee = coin::extract_all(&mut order.fee);
+
+        // open position in pool
+        let (code, collateral, result, failure) = pool::open_position<Collateral, Index, Direction>(
+            &order.position_config,
+            coin::extract_all(&mut order.collateral),
+            order.collateral_price_threshold,
+            rebate_rate,
+            long,
+            order.open_amount,
+            order.reserve_amount,
+            lp_supply_amount,
+            timestamp,
+        );
+
+        (code, collateral, result, failure, fee)
+    }
 
     public(friend) fun destroy_open_position_order<Collateral, Fee>() {}
 
