@@ -13,9 +13,16 @@ module perpetual::pool {
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
+    use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::timestamp;
+    use perpetual::lp;
 
     friend perpetual::market;
     friend perpetual::orders;
+
+    struct LONG has drop {}
+
+    struct SHORT has drop {}
 
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
@@ -158,6 +165,7 @@ module perpetual::pool {
     // model errors
     const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 13;
     const ERR_MISMATCHED_FUNDING_FEE_MODEL: u64 = 14;
+    const ERR_INVALID_DIRECTION: u64 = 15;
 
     public(friend) fun new_vault<Collateral>(
         account: &signer,
@@ -697,10 +705,6 @@ module perpetual::pool {
         (to_liquidator, event)
     }
 
-    public(friend) fun valuate_vault<Collateral>() {}
-
-    public(friend) fun valuate_symbol() {}
-
     public(friend) fun symbol_price_config<Index, Direction>(): AggPriceConfig acquires Symbol {
         borrow_global<Symbol<Index, Direction>>(@perpetual).price_config
     }
@@ -874,5 +878,93 @@ module perpetual::pool {
         )
     }
 
+    public(friend) fun vault_valuation(): (Decimal, Decimal) acquires Vault {
+        let timestamp = timestamp::now_seconds();
+        let total_value = decimal::zero();
+        let total_weight = decimal::zero();
+        // loop through all of vault
+        let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
+
+        (total_value, total_weight)
+
+    }
+
+    public(friend) fun symbol_valuation(): SDecimal acquires Symbol {
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let total_value = sdecimal::zero();
+
+        // loop through all of Symbol
+        let total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+
+        total_value
+
+    }
+
+    fun valuate_vault<Collateral> (
+        timestamp: u64,
+        total_value: Decimal,
+        total_weight: Decimal
+    ):(Decimal, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        refresh_vault(vault, timestamp);
+        let value = agg_price::coins_to_value(
+            &collateral_price,
+            decimal::floor_u64(vault_supply_amount(vault)),
+        );
+        decimal::add(total_value, value);
+        let weight = vault_weight<Collateral>(vault);
+        decimal::add(total_weight, weight);
+        (total_value, total_weight)
+    }
+
+    fun valuate_symbol<Index, Direction>(timestamp: u64, lp_supply_amount: Decimal, total_value: SDecimal): SDecimal acquires Symbol {
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+        let long = parse_direction<Direction>();
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+        let delta_size = sdecimal::add(delta_size, symbol.unrealised_funding_fee_value);
+        sdecimal::add(total_value, delta_size)
+    }
+
+    public fun vault_weight<C>(vault: &Vault<C>): Decimal {
+        vault.weight
+    }
+
+    public fun lp_supply_amount(): Decimal {
+        // LP decimal is 6
+        let supply = lp::get_supply();
+        decimal::div_by_u64(
+            decimal::from_u128(supply),
+            1_000_000,
+        )
+    }
+
+    public fun parse_direction<Direction>(): bool {
+        let direction = type_info::type_of<Direction>();
+        if (direction == type_info::type_of<LONG>()) {
+            true
+        } else {
+            assert!(
+                direction == type_info::type_of<SHORT>(),
+                ERR_INVALID_DIRECTION,
+            );
+            false
+        }
+    }
 
 }

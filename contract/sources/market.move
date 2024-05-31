@@ -5,10 +5,11 @@ module perpetual::market {
     use std::string::String;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult};
+    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult, LONG, SHORT};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
+    use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::lp;
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
@@ -36,10 +37,6 @@ module perpetual::market {
     struct PositionsRecord<phantom CoinType> has key {
         positions: Table<u64, Position<CoinType>>
     }
-
-    struct LONG has drop {}
-
-    struct SHORT has drop {}
 
     struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
         id: u64,
@@ -859,33 +856,79 @@ module perpetual::market {
 
     }
 
-    public fun deposit<LP, Collateral>() {
+    // public fun deposit<Collateral>(
+    //     user: &signer,
+    //     model: &RebaseFeeModel,
+    //     deposit_amount: u64,
+    //     min_amount_out: u64,
+    //     vaults_valuation: VaultsValuation,
+    //     symbols_valuation: SymbolsValuation,
+    // ) acquires Market {
+    //     let market = borrow_global_mut<Market>(@perpetual);
+    //     let minter = signer::address_of(user);
+    //     let deposit_amount = coin::value(&deposit);
+    //     let lp_supply_amount = lp_supply_amount();
+    //     let (
+    //         handled_vaults,
+    //         total_weight,
+    //         total_vaults_value,
+    //         market_value,
+    //     ) = finalize_market_valuation(market, vaults_valuation, symbols_valuation);
+    //     let (_, VaultInfo { price, value: vault_value }) = vec_map::remove(
+    //         &mut handled_vaults,
+    //         &type_name::get<VaultName<C>>(),
+    //     );
+    //
+    //     let vault: &mut Vault<C> = bag::borrow_mut(&mut market.vaults, VaultName<C> {});
+    //
+    //     let (mint_amount, fee_value) = pool::deposit(
+    //         vault,
+    //         model,
+    //         &price,
+    //         coin::into_balance(deposit),
+    //         min_amount_out,
+    //         lp_supply_amount,
+    //         market_value,
+    //         vault_value,
+    //         total_vaults_value,
+    //         total_weight,
+    //     );
+    //
+    //     // mint to sender
+    //     let minted = balance::increase_supply(&mut market.lp_supply, mint_amount);
+    //     pay_from_balance(minted, minter, ctx);
+    //
+    //     // emit deposited
+    //     event::emit(Deposited<C> {
+    //         minter,
+    //         price: agg_price::price_of(&price),
+    //         deposit_amount,
+    //         mint_amount,
+    //         fee_value,
+    //     });
+    // }
 
-    }
-
-    public fun withdraw<LP, Collateral>() {
-
-    }
+    // public fun withdraw<Collateral>(
+    //     user: &signer,
+    //     model: &RebaseFeeModel,
+    //     lp_burn_amount: u64,
+    //     min_amount_out: u64,
+    //     vaults_valuation: VaultsValuation,
+    //     symbols_valuation: SymbolsValuation,
+    // ) acquires Market {
+    //
+    // }
 
     public fun swap<LP, Source, Destination>() {
 
     }
 
-    public fun create_vaults_valuation<LP>() {
-
+    fun finalize_market_valuation(): (Decimal, Decimal, Decimal) {
+        let (vault_total_value, vault_total_weight) = pool::vault_valuation();
+        let symbol_total_value = sdecimal::value(&pool::symbol_valuation());
+        (vault_total_value, vault_total_weight, symbol_total_value)
     }
 
-    public fun create_symbols_valuation<LP>() {
-
-    }
-
-    public fun valuate_vault<LP, Collateral>() {
-
-    }
-
-    public fun valuate_symbol<LP, Index, Direction>() {
-
-    }
 
     public fun force_close_position<LP, Collateral, Index, Direction>() {}
 

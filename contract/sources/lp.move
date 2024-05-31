@@ -38,7 +38,7 @@ module perpetual::lp {
 
     public(friend) fun burn() {}
 
-    public(friend) fun get_supply(): u128 acquires RefAbility {
+    public fun get_supply(): u128 acquires RefAbility {
         let ref_ability = borrow_global<RefAbility>(@perpetual);
         let supply_opt =
             fungible_asset::supply(fungible_asset::mint_ref_metadata(&ref_ability.mint_ref));
