@@ -25,7 +25,7 @@ module perpetual::market {
         vaults_locked: bool,
         symbols_locked: bool,
 
-        rebate_rate: RebaseFeeModel,
+        rebase_model: RebaseFeeModel,
         referrals: Table<address, Referral>
     }
 
@@ -89,7 +89,7 @@ module perpetual::market {
             vaults_locked: false,
             symbols_locked: false,
 
-            rebate_rate: rate,
+            rebase_model: rate,
             referrals: table::new<address, Referral>()
 
         };
@@ -856,57 +856,45 @@ module perpetual::market {
 
     }
 
-    // public fun deposit<Collateral>(
-    //     user: &signer,
-    //     model: &RebaseFeeModel,
-    //     deposit_amount: u64,
-    //     min_amount_out: u64,
-    //     vaults_valuation: VaultsValuation,
-    //     symbols_valuation: SymbolsValuation,
-    // ) acquires Market {
-    //     let market = borrow_global_mut<Market>(@perpetual);
-    //     let minter = signer::address_of(user);
-    //     let deposit_amount = coin::value(&deposit);
-    //     let lp_supply_amount = lp_supply_amount();
-    //     let (
-    //         handled_vaults,
-    //         total_weight,
-    //         total_vaults_value,
-    //         market_value,
-    //     ) = finalize_market_valuation(market, vaults_valuation, symbols_valuation);
-    //     let (_, VaultInfo { price, value: vault_value }) = vec_map::remove(
-    //         &mut handled_vaults,
-    //         &type_name::get<VaultName<C>>(),
-    //     );
-    //
-    //     let vault: &mut Vault<C> = bag::borrow_mut(&mut market.vaults, VaultName<C> {});
-    //
-    //     let (mint_amount, fee_value) = pool::deposit(
-    //         vault,
-    //         model,
-    //         &price,
-    //         coin::into_balance(deposit),
-    //         min_amount_out,
-    //         lp_supply_amount,
-    //         market_value,
-    //         vault_value,
-    //         total_vaults_value,
-    //         total_weight,
-    //     );
-    //
-    //     // mint to sender
-    //     let minted = balance::increase_supply(&mut market.lp_supply, mint_amount);
-    //     pay_from_balance(minted, minter, ctx);
-    //
-    //     // emit deposited
-    //     event::emit(Deposited<C> {
-    //         minter,
-    //         price: agg_price::price_of(&price),
-    //         deposit_amount,
-    //         mint_amount,
-    //         fee_value,
-    //     });
-    // }
+    public fun deposit<Collateral>(
+        user: &signer,
+        deposit_amount: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        let minter = signer::address_of(user);
+        let lp_supply_amount = lp_supply_amount();
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+
+        let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
+
+        let (mint_amount, fee_value) = pool::deposit<Collateral>(
+            user,
+            &market.rebase_model,
+            deposit_amount,
+            min_amount_out,
+            market_value,
+            vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        // mint to sender
+        lp::mint_to(user, mint_amount);
+
+        //TODO: emit deposited
+        // event::emit(Deposited<C> {
+        //     minter,
+        //     price: agg_price::price_of(&price),
+        //     deposit_amount,
+        //     mint_amount,
+        //     fee_value,
+        // });
+    }
 
     // public fun withdraw<Collateral>(
     //     user: &signer,
@@ -925,8 +913,9 @@ module perpetual::market {
 
     fun finalize_market_valuation(): (Decimal, Decimal, Decimal) {
         let (vault_total_value, vault_total_weight) = pool::vault_valuation();
-        let symbol_total_value = sdecimal::value(&pool::symbol_valuation());
-        (vault_total_value, vault_total_weight, symbol_total_value)
+        let symbol_total_value = pool::symbol_valuation();
+        let market_value = sdecimal::add_with_decimal(symbol_total_value, vault_total_value);
+        (vault_total_weight, vault_total_value, sdecimal::value(&market_value))
     }
 
 

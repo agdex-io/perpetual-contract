@@ -43,8 +43,22 @@ module perpetual::model {
         }
     }
 
-    public fun compute_rebase_fee_rate() {
-
+    public fun compute_rebase_fee_rate(
+        model: &RebaseFeeModel,
+        increase: bool,
+        ratio: Rate,
+        target_ratio: Rate,
+    ): Rate {
+        if ((increase && rate::le(&ratio, &target_ratio))
+            || (!increase && rate::ge(&ratio, &target_ratio))) {
+            model.base
+        } else {
+            let delta_rate = decimal::mul_with_rate(
+                model.multiplier,
+                rate::diff(ratio, target_ratio),
+            );
+            rate::add(model.base, decimal::to_rate(delta_rate))
+        }
     }
 
     public fun compute_reserving_fee_rate(

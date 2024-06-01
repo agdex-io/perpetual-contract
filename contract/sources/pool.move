@@ -7,7 +7,7 @@ module perpetual::pool {
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::model::{Self, FundingFeeModel, ReservingFeeModel};
+    use perpetual::model::{Self, RebaseFeeModel, FundingFeeModel, ReservingFeeModel};
     use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{Self, PositionConfig, Position};
     use aptos_std::smart_vector::{Self, SmartVector};
@@ -259,7 +259,63 @@ module perpetual::pool {
         symbol.liquidate_enabled = liquidate_enabled;
     }
 
-    public(friend) fun deposit<Collateral>() {}
+    public(friend) fun deposit<Collateral>(
+        user: &signer,
+        rebase_model: &RebaseFeeModel,
+        deposit_amount: u64,
+        min_amount_out: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ):(u64, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(deposit_amount > 0, ERR_INVALID_DEPOSIT_AMOUNT);
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let deposit_value = agg_price::coins_to_value(&collateral_price, deposit_amount);
+
+        // handle fee
+        let fee_rate = compute_rebase_fee_rate(
+            rebase_model,
+            true,
+            decimal::add(vault_value, deposit_value),
+            decimal::add(total_vaults_value, deposit_value),
+            vault.weight,
+            total_weight,
+        );
+        let fee_value = decimal::mul_with_rate(deposit_value, fee_rate);
+        deposit_value = decimal::sub(deposit_value, fee_value);
+        let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
+
+        coin::merge(&mut vault.liquidity, deposit_coin);
+
+        // handle mint
+        let mint_amount = if (decimal::is_zero(&lp_supply_amount)) {
+            assert!(decimal::is_zero(&market_value), ERR_UNEXPECTED_MARKET_VALUE);
+            truncate_decimal(deposit_value)
+        } else {
+            assert!(!decimal::is_zero(&market_value), ERR_UNEXPECTED_MARKET_VALUE);
+            let exchange_rate = decimal::to_rate(
+                decimal::div(deposit_value, market_value)
+            );
+            decimal::floor_u64(
+                decimal::mul_with_rate(
+                    lp_supply_amount,
+                    exchange_rate,
+                )
+            )
+        };
+        assert!(mint_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+
+        (mint_amount, fee_value)
+    }
 
     public(friend) fun withdraw<Collateral>() {}
 
@@ -923,6 +979,22 @@ module perpetual::pool {
         (total_value, total_weight)
     }
 
+    public(friend) fun vault_value<Collateral>(timestamp: u64): Decimal acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        refresh_vault(vault, timestamp);
+        let value = agg_price::coins_to_value(
+            &collateral_price,
+            decimal::floor_u64(vault_supply_amount(vault)),
+        );
+        value
+
+    }
+
     fun valuate_symbol<Index, Direction>(timestamp: u64, lp_supply_amount: Decimal, total_value: SDecimal): SDecimal acquires Symbol {
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
         let index_price = agg_price::parse_pyth_feeder(
@@ -965,6 +1037,37 @@ module perpetual::pool {
             );
             false
         }
+    }
+
+    public fun compute_rebase_fee_rate(
+        model: &RebaseFeeModel,
+        increase: bool,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        vault_weight: Decimal,
+        total_vaults_weight: Decimal,
+    ): Rate {
+        if (decimal::eq(&vault_value, &total_vaults_value)) {
+            // first deposit or withdraw all should be zero fee
+            rate::zero()
+        } else {
+            let ratio = decimal::to_rate(
+                decimal::div(vault_value, total_vaults_value)
+            );
+            let target_ratio = decimal::to_rate(
+                decimal::div(vault_weight, total_vaults_weight)
+            );
+
+            model::compute_rebase_fee_rate(model, increase, ratio, target_ratio)
+        }
+    }
+
+    fun truncate_decimal(value: Decimal): u64 {
+        // decimal's precision is 18, we need to truncate it to 6
+        let value = decimal::to_raw(value);
+        value = value / 1_000_000_000_000;
+
+        (value as u64)
     }
 
 }
