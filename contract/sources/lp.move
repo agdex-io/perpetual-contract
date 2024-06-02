@@ -3,7 +3,7 @@ module perpetual::lp {
     use std::option;
     use std::string;
     use aptos_framework::object::{Self, Object, ConstructorRef, DeleteRef, ExtendRef};
-    use aptos_framework::fungible_asset::{Self, MintRef, BurnRef, generate_burn_ref, generate_mint_ref, Metadata};
+    use aptos_framework::fungible_asset::{Self, MintRef, BurnRef, generate_burn_ref, Metadata, FungibleAsset};
 
     friend perpetual::market;
 
@@ -42,9 +42,10 @@ module perpetual::lp {
         fungible_asset::deposit(user_store, fa);
     }
 
-    // public(friend) fun burn(burn_amount: u64) acquires RefAbility {
-    //
-    // }
+    public(friend) fun burn(fa: FungibleAsset) acquires RefAbility {
+        let ref_ability = borrow_global<RefAbility>(@perpetual);
+        fungible_asset::burn(&ref_ability.burn_ref, fa);
+    }
 
     public fun get_supply(): u128 acquires RefAbility {
         let ref_ability = borrow_global<RefAbility>(@perpetual);

@@ -18,7 +18,11 @@ module perpetual::market {
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::fungible_asset;
+    use aptos_framework::fungible_asset::{Metadata, FungibleStore};
     use pyth::price_identifier;
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::fungible_asset::{FungibleAsset};
 
 
     struct Market has key {
@@ -862,8 +866,6 @@ module perpetual::market {
         min_amount_out: u64,
     ) acquires Market {
         let market = borrow_global_mut<Market>(@perpetual);
-        let minter = signer::address_of(user);
-        let lp_supply_amount = lp_supply_amount();
         let (
             total_weight,
             total_vaults_value,
@@ -896,16 +898,48 @@ module perpetual::market {
         // });
     }
 
-    // public fun withdraw<Collateral>(
-    //     user: &signer,
-    //     model: &RebaseFeeModel,
-    //     lp_burn_amount: u64,
-    //     min_amount_out: u64,
-    //     vaults_valuation: VaultsValuation,
-    //     symbols_valuation: SymbolsValuation,
-    // ) acquires Market {
-    //
-    // }
+    public fun withdraw<Collateral>(
+        user: &signer,
+        model: &RebaseFeeModel,
+        lp_store: Object<FungibleStore>,
+        lp_burn_amount: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        // burn lp
+        let fa = fungible_asset::withdraw(user, lp_store, lp_burn_amount);
+        lp::burn(fa);
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+
+        let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
+
+        // withdraw to burner
+        let (withdraw, fee_value) = pool::withdraw<Collateral>(
+            &market.rebase_model,
+            lp_burn_amount,
+            min_amount_out,
+            market_value,
+            vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        coin::deposit(signer::address_of(user), withdraw);
+
+        //TODO: emit withdrawn
+        // event::emit(Withdrawn<C> {
+        //     burner,
+        //     price: agg_price::price_of(&price),
+        //     withdraw_amount,
+        //     burn_amount,
+        //     fee_value,
+        // });
+
+    }
 
     public fun swap<LP, Source, Destination>() {
 

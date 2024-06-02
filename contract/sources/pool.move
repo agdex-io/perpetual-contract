@@ -317,7 +317,66 @@ module perpetual::pool {
         (mint_amount, fee_value)
     }
 
-    public(friend) fun withdraw<Collateral>() {}
+    public(friend) fun withdraw<Collateral>(
+        rebase_model: &RebaseFeeModel,
+        burn_amount: u64,
+        min_amount_out: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ):(Coin<Collateral>, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(burn_amount > 0, ERR_INVALID_DEPOSIT_AMOUNT);
+
+        let exchange_rate = decimal::to_rate(
+            decimal::div(
+                decimal::from_u64(burn_amount),
+                lp_supply_amount,
+            )
+        );
+        let withdraw_value = decimal::mul_with_rate(market_value, exchange_rate);
+        assert!(
+            decimal::le(&withdraw_value, &vault_value),
+            ERR_INSUFFICIENT_SUPPLY,
+        );
+
+        // handle fee
+        let fee_rate = compute_rebase_fee_rate(
+            rebase_model,
+            false,
+            decimal::sub(vault_value, withdraw_value),
+            decimal::sub(total_vaults_value, withdraw_value),
+            vault.weight,
+            total_weight,
+        );
+        let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
+        withdraw_value = decimal::sub(withdraw_value, fee_value);
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+
+        let withdraw_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, withdraw_value)
+        );
+        assert!(
+            withdraw_amount <= coin::value(&vault.liquidity),
+            ERR_INSUFFICIENT_LIQUIDITY,
+        );
+
+        let withdraw = coin::extract(&mut vault.liquidity, withdraw_amount);
+        assert!(
+            coin::value(&withdraw) >= min_amount_out,
+            ERR_AMOUNT_OUT_TOO_LESS,
+        );
+
+        (withdraw, fee_value)
+    }
 
     public(friend) fun swap_in<Source>() {}
 
