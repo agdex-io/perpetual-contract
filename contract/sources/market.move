@@ -941,7 +941,57 @@ module perpetual::market {
 
     }
 
-    public fun swap<LP, Source, Destination>() {
+    public fun swap<Source, Destination>(
+        user: &signer,
+        amount_in: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        assert!(
+            type_info::type_name<Source>() != type_info::type_name<Destination>(),
+            ERR_SWAPPING_SAME_COINS,
+        );
+        let user_account = signer::address_of(user);
+        let market = borrow_global_mut<Market>(@perpetual);
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+        let source_vault_value = pool::vault_value<Source>(timestamp::now_seconds());
+        let destination_vault_value = pool::vault_value<Destination>(timestamp::now_seconds());
+
+        // swap step 1
+        let (swap_value, source_fee_value) = pool::swap_in<Source>(
+            &market.rebase_model,
+            coin::withdraw<Source>(user, amount_in),
+            source_vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        // swap step 2
+        let (receiving, dest_fee_value) = pool::swap_out<Destination>(
+            &market.rebase_model,
+            min_amount_out,
+            swap_value,
+            destination_vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        coin::deposit(user_account, receiving);
+
+        //TODO: emit swapped
+        // event::emit(Swapped<S, D> {
+        //     swapper,
+        //     source_price: agg_price::price_of(&source_price),
+        //     dest_price: agg_price::price_of(&dest_price),
+        //     source_amount,
+        //     dest_amount,
+        //     fee_value: decimal::add(source_fee_value, dest_fee_value),
+        // });
+
+
 
     }
 

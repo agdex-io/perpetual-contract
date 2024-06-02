@@ -378,9 +378,93 @@ module perpetual::pool {
         (withdraw, fee_value)
     }
 
-    public(friend) fun swap_in<Source>() {}
+    public(friend) fun swap_in<Source>(
+        model: &RebaseFeeModel,
+        source: Coin<Source>,
+        source_vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ): (Decimal, Decimal) acquires Vault {
+        let source_vault = borrow_global_mut<Vault<Source>>(@perpetual);
+        assert!(source_vault.enabled, ERR_VAULT_DISABLED);
 
-    public(friend) fun swap_out<Destination>() {}
+        let source_amount = coin::value(&source);
+        let timestamp = timestamp::now_seconds();
+        assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
+
+        coin::merge(&mut source_vault.liquidity, source);
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &source_vault.price_config,
+            timestamp
+        );
+
+        // handle swapping in
+        let swap_value = agg_price::coins_to_value(&collateral_price, source_amount);
+        let source_fee_rate = compute_rebase_fee_rate(
+            model,
+            true,
+            decimal::add(source_vault_value, swap_value),
+            decimal::add(total_vaults_value, swap_value),
+            source_vault.weight,
+            total_weight,
+        );
+        let source_fee_value = decimal::mul_with_rate(swap_value, source_fee_rate);
+
+        (
+            decimal::sub(swap_value, source_fee_value),
+            source_fee_value,
+        )
+    }
+
+    public(friend) fun swap_out<Destination>(
+        model: &RebaseFeeModel,
+        min_amount_out: u64,
+        swap_value: Decimal,
+        dest_vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ): (Coin<Destination>, Decimal) acquires Vault {
+        let dest_vault = borrow_global_mut<Vault<Destination>>(@perpetual);
+        assert!(dest_vault.enabled, ERR_VAULT_DISABLED);
+        let timestamp = timestamp::now_seconds();
+
+        // handle swapping out
+        assert!(
+            decimal::lt(&swap_value, &dest_vault_value),
+            ERR_INSUFFICIENT_SUPPLY,
+        );
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &dest_vault.price_config,
+            timestamp
+        );
+
+        let dest_fee_rate = compute_rebase_fee_rate(
+            model,
+            false,
+            decimal::sub(dest_vault_value, swap_value),
+            total_vaults_value,
+            dest_vault.weight,
+            total_weight,
+        );
+        let dest_fee_value = decimal::mul_with_rate(swap_value, dest_fee_rate);
+        swap_value = decimal::sub(swap_value, dest_fee_value);
+
+        let dest_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, swap_value)
+        );
+        assert!(dest_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+        assert!(
+            dest_amount < coin::value(&dest_vault.liquidity),
+            ERR_INSUFFICIENT_LIQUIDITY,
+        );
+
+        (
+            coin::extract(&mut dest_vault.liquidity, dest_amount),
+            dest_fee_value,
+        )
+    }
 
     public(friend) fun open_position<Collateral, Index, Direction>(
         position_config: &PositionConfig,
