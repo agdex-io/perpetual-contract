@@ -7,15 +7,22 @@ module perpetual::pool {
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::model::{Self, FundingFeeModel, ReservingFeeModel};
+    use perpetual::model::{Self, RebaseFeeModel, FundingFeeModel, ReservingFeeModel};
     use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{Self, PositionConfig, Position};
     use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
+    use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::timestamp;
+    use perpetual::lp;
 
     friend perpetual::market;
     friend perpetual::orders;
+
+    struct LONG has drop {}
+
+    struct SHORT has drop {}
 
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
@@ -158,6 +165,7 @@ module perpetual::pool {
     // model errors
     const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 13;
     const ERR_MISMATCHED_FUNDING_FEE_MODEL: u64 = 14;
+    const ERR_INVALID_DIRECTION: u64 = 15;
 
     public(friend) fun new_vault<Collateral>(
         account: &signer,
@@ -251,13 +259,212 @@ module perpetual::pool {
         symbol.liquidate_enabled = liquidate_enabled;
     }
 
-    public(friend) fun deposit<Collateral>() {}
+    public(friend) fun deposit<Collateral>(
+        user: &signer,
+        rebase_model: &RebaseFeeModel,
+        deposit_amount: u64,
+        min_amount_out: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ):(u64, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(deposit_amount > 0, ERR_INVALID_DEPOSIT_AMOUNT);
 
-    public(friend) fun withdraw<Collateral>() {}
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        let deposit_value = agg_price::coins_to_value(&collateral_price, deposit_amount);
 
-    public(friend) fun swap_in<Source>() {}
+        // handle fee
+        let fee_rate = compute_rebase_fee_rate(
+            rebase_model,
+            true,
+            decimal::add(vault_value, deposit_value),
+            decimal::add(total_vaults_value, deposit_value),
+            vault.weight,
+            total_weight,
+        );
+        let fee_value = decimal::mul_with_rate(deposit_value, fee_rate);
+        deposit_value = decimal::sub(deposit_value, fee_value);
+        let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
 
-    public(friend) fun swap_out<Destination>() {}
+        coin::merge(&mut vault.liquidity, deposit_coin);
+
+        // handle mint
+        let mint_amount = if (decimal::is_zero(&lp_supply_amount)) {
+            assert!(decimal::is_zero(&market_value), ERR_UNEXPECTED_MARKET_VALUE);
+            truncate_decimal(deposit_value)
+        } else {
+            assert!(!decimal::is_zero(&market_value), ERR_UNEXPECTED_MARKET_VALUE);
+            let exchange_rate = decimal::to_rate(
+                decimal::div(deposit_value, market_value)
+            );
+            decimal::floor_u64(
+                decimal::mul_with_rate(
+                    lp_supply_amount,
+                    exchange_rate,
+                )
+            )
+        };
+        assert!(mint_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+
+        (mint_amount, fee_value)
+    }
+
+    public(friend) fun withdraw<Collateral>(
+        rebase_model: &RebaseFeeModel,
+        burn_amount: u64,
+        min_amount_out: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ):(Coin<Collateral>, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(burn_amount > 0, ERR_INVALID_DEPOSIT_AMOUNT);
+
+        let exchange_rate = decimal::to_rate(
+            decimal::div(
+                decimal::from_u64(burn_amount),
+                lp_supply_amount,
+            )
+        );
+        let withdraw_value = decimal::mul_with_rate(market_value, exchange_rate);
+        assert!(
+            decimal::le(&withdraw_value, &vault_value),
+            ERR_INSUFFICIENT_SUPPLY,
+        );
+
+        // handle fee
+        let fee_rate = compute_rebase_fee_rate(
+            rebase_model,
+            false,
+            decimal::sub(vault_value, withdraw_value),
+            decimal::sub(total_vaults_value, withdraw_value),
+            vault.weight,
+            total_weight,
+        );
+        let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
+        withdraw_value = decimal::sub(withdraw_value, fee_value);
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+
+        let withdraw_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, withdraw_value)
+        );
+        assert!(
+            withdraw_amount <= coin::value(&vault.liquidity),
+            ERR_INSUFFICIENT_LIQUIDITY,
+        );
+
+        let withdraw = coin::extract(&mut vault.liquidity, withdraw_amount);
+        assert!(
+            coin::value(&withdraw) >= min_amount_out,
+            ERR_AMOUNT_OUT_TOO_LESS,
+        );
+
+        (withdraw, fee_value)
+    }
+
+    public(friend) fun swap_in<Source>(
+        model: &RebaseFeeModel,
+        source: Coin<Source>,
+        source_vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ): (Decimal, Decimal) acquires Vault {
+        let source_vault = borrow_global_mut<Vault<Source>>(@perpetual);
+        assert!(source_vault.enabled, ERR_VAULT_DISABLED);
+
+        let source_amount = coin::value(&source);
+        let timestamp = timestamp::now_seconds();
+        assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
+
+        coin::merge(&mut source_vault.liquidity, source);
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &source_vault.price_config,
+            timestamp
+        );
+
+        // handle swapping in
+        let swap_value = agg_price::coins_to_value(&collateral_price, source_amount);
+        let source_fee_rate = compute_rebase_fee_rate(
+            model,
+            true,
+            decimal::add(source_vault_value, swap_value),
+            decimal::add(total_vaults_value, swap_value),
+            source_vault.weight,
+            total_weight,
+        );
+        let source_fee_value = decimal::mul_with_rate(swap_value, source_fee_rate);
+
+        (
+            decimal::sub(swap_value, source_fee_value),
+            source_fee_value,
+        )
+    }
+
+    public(friend) fun swap_out<Destination>(
+        model: &RebaseFeeModel,
+        min_amount_out: u64,
+        swap_value: Decimal,
+        dest_vault_value: Decimal,
+        total_vaults_value: Decimal,
+        total_weight: Decimal,
+    ): (Coin<Destination>, Decimal) acquires Vault {
+        let dest_vault = borrow_global_mut<Vault<Destination>>(@perpetual);
+        assert!(dest_vault.enabled, ERR_VAULT_DISABLED);
+        let timestamp = timestamp::now_seconds();
+
+        // handle swapping out
+        assert!(
+            decimal::lt(&swap_value, &dest_vault_value),
+            ERR_INSUFFICIENT_SUPPLY,
+        );
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &dest_vault.price_config,
+            timestamp
+        );
+
+        let dest_fee_rate = compute_rebase_fee_rate(
+            model,
+            false,
+            decimal::sub(dest_vault_value, swap_value),
+            total_vaults_value,
+            dest_vault.weight,
+            total_weight,
+        );
+        let dest_fee_value = decimal::mul_with_rate(swap_value, dest_fee_rate);
+        swap_value = decimal::sub(swap_value, dest_fee_value);
+
+        let dest_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, swap_value)
+        );
+        assert!(dest_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+        assert!(
+            dest_amount < coin::value(&dest_vault.liquidity),
+            ERR_INSUFFICIENT_LIQUIDITY,
+        );
+
+        (
+            coin::extract(&mut dest_vault.liquidity, dest_amount),
+            dest_fee_value,
+        )
+    }
 
     public(friend) fun open_position<Collateral, Index, Direction>(
         position_config: &PositionConfig,
@@ -697,10 +904,6 @@ module perpetual::pool {
         (to_liquidator, event)
     }
 
-    public(friend) fun valuate_vault<Collateral>() {}
-
-    public(friend) fun valuate_symbol() {}
-
     public(friend) fun symbol_price_config<Index, Direction>(): AggPriceConfig acquires Symbol {
         borrow_global<Symbol<Index, Direction>>(@perpetual).price_config
     }
@@ -874,5 +1077,140 @@ module perpetual::pool {
         )
     }
 
+    public(friend) fun vault_valuation(): (Decimal, Decimal) acquires Vault {
+        let timestamp = timestamp::now_seconds();
+        let total_value = decimal::zero();
+        let total_weight = decimal::zero();
+        // loop through all of vault
+        let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
+
+        (total_value, total_weight)
+
+    }
+
+    public(friend) fun symbol_valuation(): SDecimal acquires Symbol {
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let total_value = sdecimal::zero();
+
+        // loop through all of Symbol
+        let total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+
+        total_value
+
+    }
+
+    fun valuate_vault<Collateral> (
+        timestamp: u64,
+        total_value: Decimal,
+        total_weight: Decimal
+    ):(Decimal, Decimal) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        refresh_vault(vault, timestamp);
+        let value = agg_price::coins_to_value(
+            &collateral_price,
+            decimal::floor_u64(vault_supply_amount(vault)),
+        );
+        decimal::add(total_value, value);
+        let weight = vault_weight<Collateral>(vault);
+        decimal::add(total_weight, weight);
+        (total_value, total_weight)
+    }
+
+    public(friend) fun vault_value<Collateral>(timestamp: u64): Decimal acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        refresh_vault(vault, timestamp);
+        let value = agg_price::coins_to_value(
+            &collateral_price,
+            decimal::floor_u64(vault_supply_amount(vault)),
+        );
+        value
+
+    }
+
+    fun valuate_symbol<Index, Direction>(timestamp: u64, lp_supply_amount: Decimal, total_value: SDecimal): SDecimal acquires Symbol {
+        let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+        let index_price = agg_price::parse_pyth_feeder(
+            &symbol.price_config,
+            timestamp
+        );
+        let long = parse_direction<Direction>();
+        let delta_size = symbol_delta_size(symbol, &index_price, long);
+        refresh_symbol(
+            symbol,
+            delta_size,
+            lp_supply_amount,
+            timestamp,
+        );
+        let delta_size = sdecimal::add(delta_size, symbol.unrealised_funding_fee_value);
+        sdecimal::add(total_value, delta_size)
+    }
+
+    public fun vault_weight<C>(vault: &Vault<C>): Decimal {
+        vault.weight
+    }
+
+    public fun lp_supply_amount(): Decimal {
+        // LP decimal is 6
+        let supply = lp::get_supply();
+        decimal::div_by_u64(
+            decimal::from_u128(supply),
+            1_000_000,
+        )
+    }
+
+    public fun parse_direction<Direction>(): bool {
+        let direction = type_info::type_of<Direction>();
+        if (direction == type_info::type_of<LONG>()) {
+            true
+        } else {
+            assert!(
+                direction == type_info::type_of<SHORT>(),
+                ERR_INVALID_DIRECTION,
+            );
+            false
+        }
+    }
+
+    public fun compute_rebase_fee_rate(
+        model: &RebaseFeeModel,
+        increase: bool,
+        vault_value: Decimal,
+        total_vaults_value: Decimal,
+        vault_weight: Decimal,
+        total_vaults_weight: Decimal,
+    ): Rate {
+        if (decimal::eq(&vault_value, &total_vaults_value)) {
+            // first deposit or withdraw all should be zero fee
+            rate::zero()
+        } else {
+            let ratio = decimal::to_rate(
+                decimal::div(vault_value, total_vaults_value)
+            );
+            let target_ratio = decimal::to_rate(
+                decimal::div(vault_weight, total_vaults_weight)
+            );
+
+            model::compute_rebase_fee_rate(model, increase, ratio, target_ratio)
+        }
+    }
+
+    fun truncate_decimal(value: Decimal): u64 {
+        // decimal's precision is 18, we need to truncate it to 6
+        let value = decimal::to_raw(value);
+        value = value / 1_000_000_000_000;
+
+        (value as u64)
+    }
 
 }

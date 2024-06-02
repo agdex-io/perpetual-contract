@@ -5,10 +5,11 @@ module perpetual::market {
     use std::string::String;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult};
+    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult, LONG, SHORT};
     use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
+    use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::lp;
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
@@ -17,14 +18,18 @@ module perpetual::market {
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::fungible_asset;
+    use aptos_framework::fungible_asset::{Metadata, FungibleStore};
     use pyth::price_identifier;
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::fungible_asset::{FungibleAsset};
 
 
     struct Market has key {
         vaults_locked: bool,
         symbols_locked: bool,
 
-        rebate_rate: RebaseFeeModel,
+        rebase_model: RebaseFeeModel,
         referrals: Table<address, Referral>
     }
 
@@ -36,10 +41,6 @@ module perpetual::market {
     struct PositionsRecord<phantom CoinType> has key {
         positions: Table<u64, Position<CoinType>>
     }
-
-    struct LONG has drop {}
-
-    struct SHORT has drop {}
 
     struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
         id: u64,
@@ -92,7 +93,7 @@ module perpetual::market {
             vaults_locked: false,
             symbols_locked: false,
 
-            rebate_rate: rate,
+            rebase_model: rate,
             referrals: table::new<address, Referral>()
 
         };
@@ -735,45 +736,272 @@ module perpetual::market {
         coin::deposit(executor_account, fee);
     }
 
-    public entry fun execute_decrease_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun execute_decrease_position_order<Collateral, Index, Direction, Fee>(
+        executor: &signer,
+        owner: address,
+        order_num: u64,
+        position_num: u64,
+    ) acquires Market, OrderRecord, PositionRecord {
+        let executor_account = signer::address_of(executor);
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
+
+        let timestamp = timestamp::now_seconds();
+        let lp_supply_amount = lp_supply_amount();
+        let long = parse_direction<Direction>();
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner,
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::borrow_mut(&mut order_record.decrease_orders, order_id);
+
+        let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner,
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position  = table::borrow_mut(
+            &mut position_record.positions,
+            position_id
+        );
+        let (code, result, failure, fee) =
+            orders::execute_decrease_position_order<Collateral, Index, Direction, Fee>(
+                order,
+                position,
+                rebate_rate,
+                long,
+                lp_supply_amount,
+                timestamp,
+        );
+        if (code == 0) {
+            let (to_trader, rebate, event) =
+                pool::unwrap_decrease_position_result(option::destroy_some(result));
+
+            coin::deposit(owner, to_trader);
+            coin::deposit(referrer, rebate);
+
+            //TODO: emit order executed and position decreased
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::some(position_name),
+            //         event,
+            //     },
+            // });
+        } else {
+            // executed order failed
+            option::destroy_none(result);
+            let event = option::destroy_some(failure);
+
+            //TODO: assert! maybe abort directly?
+
+            // TODO: emit order executed and decrease closed
+            // event::emit(OrderExecuted {
+            //     executor,
+            //     order_name,
+            //     claim: PositionClaimed {
+            //         position_name: option::some(position_name),
+            //         event,
+            //     },
+            // });
+        };
+
+        coin::deposit(executor_account, fee);
 
     }
 
-    public entry fun clear_open_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public entry fun clear_open_position_order<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        order_num: u64,
+    ) acquires OrderRecord {
+        let user_account = signer::address_of(user);
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.open_orders, order_id);
+        let (collateral, fee) = orders::destroy_open_position_order(order);
+
+        //TODO: emit order cleared
+        // event::emit(OrderCleared { order_name });
+
+        coin::deposit(user_account, collateral);
+        coin::deposit(user_account, fee);
+    }
+
+    public entry fun clear_decrease_position_order<Collateral, Index, Direction, Fee>(
+        user: &signer,
+        order_num: u64
+    ) acquires OrderRecord {
+        let user_account = signer::address_of(user);
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.decrease_orders, order_id);
+        let fee = orders::destory_decrease_position_order(order);
+
+        //TODO: emit order cleared
+        // event::emit(OrderCleared { order_name });
+
+        coin::deposit(user_account, fee);
 
     }
 
-    public entry fun clear_decrease_position_order<LP, Collateral, Index, Direction, Fee>() {
+    public fun deposit<Collateral>(
+        user: &signer,
+        deposit_amount: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+
+        let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
+
+        let (mint_amount, fee_value) = pool::deposit<Collateral>(
+            user,
+            &market.rebase_model,
+            deposit_amount,
+            min_amount_out,
+            market_value,
+            vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        // mint to sender
+        lp::mint_to(user, mint_amount);
+
+        //TODO: emit deposited
+        // event::emit(Deposited<C> {
+        //     minter,
+        //     price: agg_price::price_of(&price),
+        //     deposit_amount,
+        //     mint_amount,
+        //     fee_value,
+        // });
+    }
+
+    public fun withdraw<Collateral>(
+        user: &signer,
+        model: &RebaseFeeModel,
+        lp_store: Object<FungibleStore>,
+        lp_burn_amount: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        // burn lp
+        let fa = fungible_asset::withdraw(user, lp_store, lp_burn_amount);
+        lp::burn(fa);
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+
+        let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
+
+        // withdraw to burner
+        let (withdraw, fee_value) = pool::withdraw<Collateral>(
+            &market.rebase_model,
+            lp_burn_amount,
+            min_amount_out,
+            market_value,
+            vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        coin::deposit(signer::address_of(user), withdraw);
+
+        //TODO: emit withdrawn
+        // event::emit(Withdrawn<C> {
+        //     burner,
+        //     price: agg_price::price_of(&price),
+        //     withdraw_amount,
+        //     burn_amount,
+        //     fee_value,
+        // });
 
     }
 
-    public fun deposit<LP, Collateral>() {
+    public fun swap<Source, Destination>(
+        user: &signer,
+        amount_in: u64,
+        min_amount_out: u64,
+    ) acquires Market {
+        assert!(
+            type_info::type_name<Source>() != type_info::type_name<Destination>(),
+            ERR_SWAPPING_SAME_COINS,
+        );
+        let user_account = signer::address_of(user);
+        let market = borrow_global_mut<Market>(@perpetual);
+        let (
+            total_weight,
+            total_vaults_value,
+            market_value,
+        ) = finalize_market_valuation();
+        let source_vault_value = pool::vault_value<Source>(timestamp::now_seconds());
+        let destination_vault_value = pool::vault_value<Destination>(timestamp::now_seconds());
+
+        // swap step 1
+        let (swap_value, source_fee_value) = pool::swap_in<Source>(
+            &market.rebase_model,
+            coin::withdraw<Source>(user, amount_in),
+            source_vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        // swap step 2
+        let (receiving, dest_fee_value) = pool::swap_out<Destination>(
+            &market.rebase_model,
+            min_amount_out,
+            swap_value,
+            destination_vault_value,
+            total_vaults_value,
+            total_weight,
+        );
+
+        coin::deposit(user_account, receiving);
+
+        //TODO: emit swapped
+        // event::emit(Swapped<S, D> {
+        //     swapper,
+        //     source_price: agg_price::price_of(&source_price),
+        //     dest_price: agg_price::price_of(&dest_price),
+        //     source_amount,
+        //     dest_amount,
+        //     fee_value: decimal::add(source_fee_value, dest_fee_value),
+        // });
+
+
 
     }
 
-    public fun withdraw<LP, Collateral>() {
-
+    fun finalize_market_valuation(): (Decimal, Decimal, Decimal) {
+        let (vault_total_value, vault_total_weight) = pool::vault_valuation();
+        let symbol_total_value = pool::symbol_valuation();
+        let market_value = sdecimal::add_with_decimal(symbol_total_value, vault_total_value);
+        (vault_total_weight, vault_total_value, sdecimal::value(&market_value))
     }
 
-    public fun swap<LP, Source, Destination>() {
-
-    }
-
-    public fun create_vaults_valuation<LP>() {
-
-    }
-
-    public fun create_symbols_valuation<LP>() {
-
-    }
-
-    public fun valuate_vault<LP, Collateral>() {
-
-    }
-
-    public fun valuate_symbol<LP, Index, Direction>() {
-
-    }
 
     public fun force_close_position<LP, Collateral, Index, Direction>() {}
 
