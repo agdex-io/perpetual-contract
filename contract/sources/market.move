@@ -1,28 +1,25 @@
 module perpetual::market {
 
     use std::signer;
-    use std::option::{Self, Option};
-    use std::string::String;
+    use std::option;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult, LONG, SHORT};
-    use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
+    use perpetual::pool::{Self, LONG, SHORT};
+    use perpetual::model::{Self, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::sdecimal::{Self, SDecimal};
+    use perpetual::sdecimal::{Self};
     use perpetual::lp;
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
-    use aptos_std::type_info::{Self, TypeInfo};
+    use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
-    use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::fungible_asset;
-    use aptos_framework::fungible_asset::{Metadata, FungibleStore};
-    use pyth::price_identifier;
-    use aptos_framework::object::{Self, Object};
-    use aptos_framework::fungible_asset::{FungibleAsset};
+    use aptos_framework::fungible_asset::{FungibleStore};
+    use aptos_framework::object::{Object};
 
 
     struct Market has key {
@@ -84,7 +81,6 @@ module perpetual::market {
 
     public(friend) fun create_market(
         admin: &signer,
-        rebate_rate: Rate
     ) {
         // create rebase fee model
         let rate = model::create_rebase_fee_model();
@@ -1003,9 +999,9 @@ module perpetual::market {
     }
 
 
-    public fun force_close_position<LP, Collateral, Index, Direction>() {}
+    public fun force_close_position<Collateral, Index, Direction>() {}
 
-    public fun force_clear_closed_position<LP, Collateral, Index, Direction>() {}
+    public fun force_clear_closed_position<Collateral, Index, Direction>() {}
 
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6

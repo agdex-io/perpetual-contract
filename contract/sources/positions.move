@@ -5,11 +5,8 @@ module perpetual::positions {
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::model::{FundingFeeModel};
-    use perpetual::agg_price::{Self, AggPrice, AggPriceConfig};
+    use perpetual::agg_price::{Self, AggPrice};
     use perpetual::sdecimal::{Self, SDecimal};
-    use aptos_std::smart_vector::{Self, SmartVector};
-    use aptos_std::type_info::{Self, TypeInfo};
 
     friend perpetual::market;
     friend perpetual::pool;
