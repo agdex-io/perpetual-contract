@@ -1,34 +1,33 @@
 module perpetual::market {
 
     use std::signer;
-    use std::option::{Self, Option};
-    use std::string::String;
+    use std::option;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
-    use perpetual::pool::{Self, Symbol, DecreasePositionFailedEvent, DecreasePositionResult, LONG, SHORT};
-    use perpetual::model::{Self, ReservingFeeModel, RebaseFeeModel};
+    use perpetual::pool::{Self, LONG, SHORT};
+    use perpetual::model::{Self, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::sdecimal::{Self, SDecimal};
+    use perpetual::sdecimal::{Self};
     use perpetual::lp;
+    use perpetual::admin;
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
-    use aptos_std::type_info::{Self, TypeInfo};
+    use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
-    use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::fungible_asset;
-    use aptos_framework::fungible_asset::{Metadata, FungibleStore};
-    use pyth::price_identifier;
-    use aptos_framework::object::{Self, Object};
-    use aptos_framework::fungible_asset::{FungibleAsset};
+    use aptos_framework::fungible_asset::{FungibleStore};
+    use aptos_framework::object::{Object};
 
 
     struct Market has key {
         vaults_locked: bool,
         symbols_locked: bool,
 
+        rebate_model: Rate,
         rebase_model: RebaseFeeModel,
         referrals: Table<address, Referral>
     }
@@ -84,16 +83,19 @@ module perpetual::market {
 
     public(friend) fun create_market(
         admin: &signer,
-        rebate_rate: Rate
     ) {
         // create rebase fee model
-        let rate = model::create_rebase_fee_model();
+        let rebase_rate = model::create_rebase_fee_model();
+
+        //TODO: assign rebate rate here
+        let rebate_rate = rate::zero();
         // move market resource to account
         let market = Market {
             vaults_locked: false,
             symbols_locked: false,
 
-            rebase_model: rate,
+            rebate_model: rebate_rate,
+            rebase_model: rebase_rate,
             referrals: table::new<address, Referral>()
 
         };
@@ -125,6 +127,28 @@ module perpetual::market {
             )
         );
         // TODO: emit event
+    }
+
+    public entry fun add_new_referral<L>(
+        user: &signer,
+        referrer: address,
+    ) acquires Market {
+        admin::check_permission(signer::address_of(user));
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(
+            !table::contains(&market.referrals, referrer),
+            ERR_ALREADY_HAS_REFERRAL,
+        );
+
+        let referral = referral::new_referral(referrer, market.rebate_model);
+        table::add(&mut market.referrals, referrer, referral);
+
+        //TODO: emit referral added
+        // event::emit(ReferralAdded {
+        //     owner,
+        //     referrer,
+        //     rebate_rate: market.rebate_rate,
+        // });
     }
 
     public entry fun replace_vault_feeder<Collateral>(
@@ -1003,9 +1027,9 @@ module perpetual::market {
     }
 
 
-    public fun force_close_position<LP, Collateral, Index, Direction>() {}
+    public fun force_close_position<Collateral, Index, Direction>() {}
 
-    public fun force_clear_closed_position<LP, Collateral, Index, Direction>() {}
+    public fun force_clear_closed_position<Collateral, Index, Direction>() {}
 
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6

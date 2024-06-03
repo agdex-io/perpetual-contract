@@ -2,7 +2,7 @@ module perpetual::lp {
 
     use std::option;
     use std::string;
-    use aptos_framework::object::{Self, Object, ConstructorRef, DeleteRef, ExtendRef};
+    use aptos_framework::object;
     use aptos_framework::fungible_asset::{Self, MintRef, BurnRef, generate_burn_ref, Metadata, FungibleAsset};
 
     friend perpetual::market;
