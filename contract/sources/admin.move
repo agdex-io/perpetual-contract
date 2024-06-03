@@ -1,4 +1,4 @@
-module perpetual::Admin {
+module perpetual::admin {
 
     use std::acl;
     use std::vector;

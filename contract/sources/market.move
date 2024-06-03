@@ -10,6 +10,7 @@ module perpetual::market {
     use perpetual::decimal::{Self, Decimal};
     use perpetual::sdecimal::{Self};
     use perpetual::lp;
+    use perpetual::admin;
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
     use aptos_std::type_info;
@@ -26,6 +27,7 @@ module perpetual::market {
         vaults_locked: bool,
         symbols_locked: bool,
 
+        rebate_model: Rate,
         rebase_model: RebaseFeeModel,
         referrals: Table<address, Referral>
     }
@@ -83,13 +85,17 @@ module perpetual::market {
         admin: &signer,
     ) {
         // create rebase fee model
-        let rate = model::create_rebase_fee_model();
+        let rebase_rate = model::create_rebase_fee_model();
+
+        //TODO: assign rebate rate here
+        let rebate_rate = rate::zero();
         // move market resource to account
         let market = Market {
             vaults_locked: false,
             symbols_locked: false,
 
-            rebase_model: rate,
+            rebate_model: rebate_rate,
+            rebase_model: rebase_rate,
             referrals: table::new<address, Referral>()
 
         };
@@ -121,6 +127,28 @@ module perpetual::market {
             )
         );
         // TODO: emit event
+    }
+
+    public entry fun add_new_referral<L>(
+        user: &signer,
+        referrer: address,
+    ) acquires Market {
+        admin::check_permission(signer::address_of(user));
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(
+            !table::contains(&market.referrals, referrer),
+            ERR_ALREADY_HAS_REFERRAL,
+        );
+
+        let referral = referral::new_referral(referrer, market.rebate_model);
+        table::add(&mut market.referrals, referrer, referral);
+
+        //TODO: emit referral added
+        // event::emit(ReferralAdded {
+        //     owner,
+        //     referrer,
+        //     rebate_rate: market.rebate_rate,
+        // });
     }
 
     public entry fun replace_vault_feeder<Collateral>(
