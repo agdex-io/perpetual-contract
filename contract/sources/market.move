@@ -8,7 +8,7 @@ module perpetual::market {
     use perpetual::model::{Self, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::sdecimal::{Self};
+    use perpetual::sdecimal;
     use perpetual::lp;
     use perpetual::admin;
     use perpetual::agg_price;
@@ -21,7 +21,6 @@ module perpetual::market {
     use aptos_framework::fungible_asset;
     use aptos_framework::fungible_asset::{FungibleStore};
     use aptos_framework::object::{Object};
-
 
     struct Market has key {
         vaults_locked: bool,
@@ -81,7 +80,7 @@ module perpetual::market {
     const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 12;
     const ERR_SWAPPING_SAME_COINS: u64 = 13;
 
-    public(friend) fun create_market(
+    fun init_module (
         admin: &signer,
     ) {
         // create rebase fee model
@@ -111,6 +110,7 @@ module perpetual::market {
         feeder: vector<u8>,
         param_multiplier: u256,
     ) {
+        admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // create reserving fee model
         let model = model::create_reserving_fee_model(

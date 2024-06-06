@@ -15,6 +15,7 @@ module perpetual::lp {
     }
 
     fun init_module(account: &signer) {
+        // TODO: coin metadata
         let creator_ref = object::create_named_object(account, b"TEST");
         fungible_asset::add_fungibility(
             &creator_ref,
