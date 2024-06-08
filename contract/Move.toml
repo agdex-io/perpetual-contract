@@ -2,6 +2,7 @@
 name = "perpetual"
 version = "0.0.1"
 authors = []
+published-at = "0x50e8f2701f77d2600a7fb2d25dc84f07a560af2c8d5724ea5d339e5b8a2a5999"
 
 [addresses]
 perpetual = "0x123" #replaced with personal account address
