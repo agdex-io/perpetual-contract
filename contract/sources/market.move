@@ -886,7 +886,7 @@ module perpetual::market {
 
     }
 
-    public fun deposit<Collateral>(
+    public entry fun deposit<Collateral>(
         user: &signer,
         deposit_amount: u64,
         min_amount_out: u64,
@@ -924,7 +924,7 @@ module perpetual::market {
         // });
     }
 
-    public fun withdraw<Collateral>(
+    public entry fun withdraw<Collateral>(
         user: &signer,
         lp_store: Object<FungibleStore>,
         lp_burn_amount: u64,
@@ -966,7 +966,7 @@ module perpetual::market {
 
     }
 
-    public fun swap<Source, Destination>(
+    public entry fun swap<Source, Destination>(
         user: &signer,
         amount_in: u64,
         min_amount_out: u64,
