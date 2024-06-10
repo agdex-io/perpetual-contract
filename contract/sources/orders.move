@@ -1,14 +1,13 @@
 module perpetual::orders {
 
-    use std::option::{Self, Option};
+    use std::option::{Option};
     use aptos_framework::coin::{Self, Coin};
-    use perpetual::rate::{Self, Rate};
-    use perpetual::srate::{Self, SRate};
+    use perpetual::rate::{Rate};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::sdecimal::{Self, SDecimal};
     use perpetual::positions::{Position, PositionConfig};
     use perpetual::agg_price::{AggPrice};
-    use perpetual::pool::{Self, Vault, Symbol, OpenPositionResult, DecreasePositionResult, OpenPositionFailedEvent, DecreasePositionFailedEvent} ;
+    use perpetual::pool::{Self, OpenPositionResult, DecreasePositionResult,
+        OpenPositionFailedEvent, DecreasePositionFailedEvent} ;
     use perpetual::agg_price;
 
     friend perpetual::market;

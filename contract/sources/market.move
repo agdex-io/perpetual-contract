@@ -8,7 +8,7 @@ module perpetual::market {
     use perpetual::model::{Self, RebaseFeeModel};
     use perpetual::positions::{Self, Position, PositionConfig};
     use perpetual::decimal::{Self, Decimal};
-    use perpetual::sdecimal::{Self};
+    use perpetual::sdecimal;
     use perpetual::lp;
     use perpetual::admin;
     use perpetual::agg_price;
@@ -21,7 +21,6 @@ module perpetual::market {
     use aptos_framework::fungible_asset;
     use aptos_framework::fungible_asset::{FungibleStore};
     use aptos_framework::object::{Object};
-
 
     struct Market has key {
         vaults_locked: bool,
@@ -81,7 +80,7 @@ module perpetual::market {
     const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 12;
     const ERR_SWAPPING_SAME_COINS: u64 = 13;
 
-    public(friend) fun create_market(
+    fun init_module (
         admin: &signer,
     ) {
         // create rebase fee model
@@ -111,6 +110,7 @@ module perpetual::market {
         feeder: vector<u8>,
         param_multiplier: u256,
     ) {
+        admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // create reserving fee model
         let model = model::create_reserving_fee_model(
@@ -130,10 +130,10 @@ module perpetual::market {
     }
 
     public entry fun add_new_referral<L>(
-        user: &signer,
+        admin: &signer,
         referrer: address,
     ) acquires Market {
-        admin::check_permission(signer::address_of(user));
+        admin::check_permission(signer::address_of(admin));
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !table::contains(&market.referrals, referrer),
@@ -157,6 +157,7 @@ module perpetual::market {
         max_interval: u64,
         max_price_confidence: u64
     ) {
+        admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         let price_config =
             agg_price::new_agg_price_config<Collateral>(max_interval, max_price_confidence, identifier);
@@ -179,6 +180,7 @@ module perpetual::market {
         liquidation_threshold: u128,
         liquidation_bonus: u128
     ) {
+        admin::check_permission(signer::address_of(admin));
         // create funding fee model
         let model = model::create_funding_fee_model(
             decimal::from_raw(param_multiplier),
@@ -214,7 +216,7 @@ module perpetual::market {
         max_interval: u64,
         max_price_confidence: u64
     ) {
-        // TODO: amdin permission check
+        admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         let price_config =
             agg_price::new_agg_price_config<Index>(max_interval, max_price_confidence, identifier);
@@ -225,9 +227,9 @@ module perpetual::market {
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(
         admin: &signer
     ) {
-        // TODO: admin permission check
+        admin::check_permission(signer::address_of(admin));
         // pool::add_collateral_to_symbol
-        pool::add_collateral_to_symbol<Collateral, Index, Direction>(admin);
+        pool::add_collateral_to_symbol<Index, Direction, Collateral>(admin);
         // create record
         if (!exists<PositionRecord<Collateral, Index, Direction>>(@perpetual)){
             move_to(admin, PositionRecord<Collateral, Index, Direction>{
@@ -248,7 +250,7 @@ module perpetual::market {
     public entry fun remove_collateral_from_symbol<Collateral, Index, Direction>(
         admin: &signer
     ) {
-        // TODO: admin permission check
+        admin::check_permission(signer::address_of(admin));
         // pool::remove_collateral_to_symbol
         pool::remove_collateral_to_symbol<Collateral, Index, Direction>(admin);
     }
@@ -259,7 +261,7 @@ module perpetual::market {
         decrease_enabled: bool,
         liquidate_enabled: bool
     ) {
-        // TODO: admin permission check
+        admin::check_permission(signer::address_of(admin));
         pool::set_symbol_status<Index, Direaction>(admin, open_enabled, decrease_enabled, liquidate_enabled);
 
     }
@@ -275,7 +277,7 @@ module perpetual::market {
         liquidation_threshold: u128,
         liquidation_bonus: u128,
     ) acquires WrappedPositionConfig {
-        // TODO: admin permission check
+        admin::check_permission(signer::address_of(admin));
         let wrapped_position_config =
             borrow_global_mut<WrappedPositionConfig<Index, Direction>>(signer::address_of(admin));
         let new_positions_config = positions::new_position_config(
@@ -884,7 +886,7 @@ module perpetual::market {
 
     }
 
-    public fun deposit<Collateral>(
+    public entry fun deposit<Collateral>(
         user: &signer,
         deposit_amount: u64,
         min_amount_out: u64,
@@ -922,9 +924,8 @@ module perpetual::market {
         // });
     }
 
-    public fun withdraw<Collateral>(
+    public entry fun withdraw<Collateral>(
         user: &signer,
-        model: &RebaseFeeModel,
         lp_store: Object<FungibleStore>,
         lp_burn_amount: u64,
         min_amount_out: u64,
@@ -965,7 +966,7 @@ module perpetual::market {
 
     }
 
-    public fun swap<Source, Destination>(
+    public entry fun swap<Source, Destination>(
         user: &signer,
         amount_in: u64,
         min_amount_out: u64,

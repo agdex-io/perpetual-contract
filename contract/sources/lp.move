@@ -15,10 +15,11 @@ module perpetual::lp {
     }
 
     fun init_module(account: &signer) {
+        // TODO: coin metadata
         let creator_ref = object::create_named_object(account, b"TEST");
         fungible_asset::add_fungibility(
             &creator_ref,
-            option::some(100) /* max supply */,
+            option::some(1000000000000000000) /* max supply */,
             string::utf8(b"TEST"),
             string::utf8(b"@@"),
             6,
