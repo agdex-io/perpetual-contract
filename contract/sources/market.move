@@ -229,7 +229,7 @@ module perpetual::market {
     ) {
         admin::check_permission(signer::address_of(admin));
         // pool::add_collateral_to_symbol
-        pool::add_collateral_to_symbol<Collateral, Index, Direction>(admin);
+        pool::add_collateral_to_symbol<Index, Direction, Collateral>(admin);
         // create record
         if (!exists<PositionRecord<Collateral, Index, Direction>>(@perpetual)){
             move_to(admin, PositionRecord<Collateral, Index, Direction>{
