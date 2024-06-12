@@ -170,6 +170,22 @@ class MarketClient(RestClient):
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
+    async def redeem_from_position(self, sender: Account, collateral, index, direction, redeem_num, position_num) -> str:
+
+        payload = EntryFunction.natural(
+            contract_address+"::market",
+            "redeem_from_position",
+            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
+            [
+                TransactionArgument(redeem_num, Serializer.u64),
+                TransactionArgument(position_num, Serializer.u64)
+            ]
+        )
+        signed_transaction = await self.create_bcs_signed_transaction(
+            sender, TransactionPayload(payload)
+        )
+        return await self.submit_bcs_transaction(signed_transaction)
+
 
 #
 async def main():
@@ -183,7 +199,8 @@ async def main():
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 1000000, 0)
     # txn_hash = await rest_client.open_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", "0x1::aptos_coin::AptosCoin", 1, 1000000, 1000000, 1000000, 10, 8163025540, 8108650100000000000)
     # txn_hash = await rest_client.execute_open_postion_order(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", "0x1::aptos_coin::AptosCoin", sender.address(), 0)
-    txn_hash = await rest_client.pledge_in_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
+    # txn_hash = await rest_client.pledge_in_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
+    txn_hash = await rest_client.redeem_from_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
     print(txn_hash)
 #
 #
