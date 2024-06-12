@@ -388,7 +388,11 @@ module perpetual::market {
             }, position);
             position_record.creation_num = position_record.creation_num + 1;
 
-            coin::deposit(referrer, rebate);
+            if (referrer != @0x0) {
+                coin::deposit(referrer, rebate);
+            } else {
+                coin::deposit(user_account, rebate);
+            }
 
 
             // TODO: emit position opened
@@ -729,7 +733,11 @@ module perpetual::market {
             );
             position_record.creation_num = position_record.creation_num + 1;
 
-            coin::deposit(referrer, rebate);
+            if (referrer == @0x0) {
+                coin::deposit(executor_account, rebate);
+            } else {
+                coin::deposit(referrer, rebate);
+            }
 
             //TODO: emit order executed and open opened
             // event::emit(OrderExecuted {
