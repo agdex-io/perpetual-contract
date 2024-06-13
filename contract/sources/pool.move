@@ -290,6 +290,7 @@ module perpetual::pool {
             vault.weight,
             total_weight,
         );
+
         let fee_value = decimal::mul_with_rate(deposit_value, fee_rate);
         deposit_value = decimal::sub(deposit_value, fee_value);
         let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
@@ -1116,9 +1117,9 @@ module perpetual::pool {
             &collateral_price,
             decimal::floor_u64(vault_supply_amount(vault)),
         );
-        decimal::add(total_value, value);
+        total_value = decimal::add(total_value, value);
         let weight = vault_weight<Collateral>(vault);
-        decimal::add(total_weight, weight);
+        total_weight = decimal::add(total_weight, weight);
         (total_value, total_weight)
     }
 
