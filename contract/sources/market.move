@@ -14,6 +14,7 @@ module perpetual::market {
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
     use aptos_std::type_info;
+    use aptos_framework::aptos_account::DirectCoinTransferConfigUpdatedEvent;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
     use aptos_framework::timestamp;
@@ -21,6 +22,8 @@ module perpetual::market {
     use aptos_framework::fungible_asset;
     use aptos_framework::fungible_asset::{FungibleStore};
     use aptos_framework::object::{Object};
+    use aptos_framework::event::emit;
+    use perpetual::agg_price::AggPrice;
 
     struct Market has key {
         vaults_locked: bool,
@@ -61,6 +64,106 @@ module perpetual::market {
         decrease_orders: Table<OrderId<CoinType, Index, Direction, Fee>, DecreasePositionOrder<Fee>>
     }
 
+    // === Events ===
+
+    #[event]
+    struct MarketCreated has copy, drop, store {
+    }
+
+    #[event]
+    struct VaultCreated<phantom C> has copy, drop, store {}
+
+    #[event]
+    struct SymbolCreated<phantom I, phantom D> has copy, drop, store {}
+
+    #[event]
+    struct CollateralAdded<phantom C, phantom I, phantom D> has copy, drop, store {}
+
+    #[event]
+    struct CollateralRemoved<phantom C, phantom I, phantom D> has copy, drop, store {}
+
+    #[event]
+    struct SymbolStatusUpdated<phantom I, phantom D> has copy, drop, store {
+        open_enabled: bool,
+        decrease_enabled: bool,
+        liquidate_enabled: bool,
+    }
+
+    #[event]
+    struct PositionConfigReplaced<phantom I, phantom D> has copy, drop, store {
+        max_leverage: u64,
+        min_holding_duration: u64,
+        max_reserved_multiplier: u64,
+        min_collateral_value: u256,
+        open_fee_bps: u128,
+        decrease_fee_bps: u128,
+        liquidation_threshold: u128,
+        liquidation_bonus: u128,
+    }
+
+    #[event]
+    struct RebateRateUpdated has copy, drop, store {
+        rebate_rate: Rate,
+    }
+
+    #[event]
+    struct ReferralAdded has copy, drop, store {
+        referrer: address,
+        rebate_rate: Rate,
+    }
+
+    #[event]
+    struct PositionClaimed<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+    }
+
+    #[event]
+    struct Deposited<phantom C> has copy, drop, store {
+        minter: address,
+        // price: Decimal,
+        deposit_amount: u64,
+        mint_amount: u64,
+        fee_value: Decimal,
+    }
+
+    #[event]
+    struct Withdrawn<phantom C> has copy, drop, store {
+        burner: address,
+        // price: Decimal,
+        withdraw_amount: u64,
+        burn_amount: u64,
+        fee_value: Decimal,
+    }
+
+    #[event]
+    struct Swapped<phantom S, phantom D> has copy, drop, store {
+        swapper: address,
+        // source_price: Decimal,
+        // dest_price: Decimal,
+        source_amount: u64,
+        dest_amount: u64,
+        fee_value: Decimal,
+    }
+
+    #[event]
+    struct OrderCreated<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+        user_account: address
+    }
+
+    #[event]
+    struct OrderExecuted<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+        executor: address,
+    }
+
+    #[event]
+    struct OrderCleared<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+    }
+
+    #[event]
+    struct VaultInfo has drop {
+        price: AggPrice,
+        value: Decimal,
+    }
+
     // === Errors ===
     // common errors
     const ERR_FUNCTION_VERSION_EXPIRED: u64 = 1;
@@ -99,7 +202,8 @@ module perpetual::market {
 
         };
         move_to(admin, market);
-        //TODO: emit event
+
+        emit(MarketCreated{});
     }
 
     public entry fun add_new_vault<Collateral>(
@@ -126,8 +230,10 @@ module perpetual::market {
                 identifier
             )
         );
-        // TODO: emit event
+
+        emit(VaultCreated<Collateral>{})
     }
+
 
     public entry fun add_new_referral<L>(
         admin: &signer,
@@ -143,12 +249,10 @@ module perpetual::market {
         let referral = referral::new_referral(referrer, market.rebate_model);
         table::add(&mut market.referrals, referrer, referral);
 
-        //TODO: emit referral added
-        // event::emit(ReferralAdded {
-        //     owner,
-        //     referrer,
-        //     rebate_rate: market.rebate_rate,
-        // });
+        emit(ReferralAdded {
+            referrer,
+            rebate_rate: market.rebate_model,
+        });
     }
 
     public entry fun replace_vault_feeder<Collateral>(
@@ -207,7 +311,7 @@ module perpetual::market {
             max_price_confidence,
             identifier
         ));
-        // TODO: emit event
+        emit(SymbolCreated<Index, Direction>{});
     }
 
     public entry fun replace_symbol_feeder<Index, Direction>(
@@ -245,6 +349,7 @@ module perpetual::market {
                 decrease_orders: table::new<OrderId<Collateral, Index, Direction, AptosCoin>, DecreasePositionOrder<AptosCoin>>()
             })
         };
+        emit(CollateralAdded<Collateral, Index, Direction>{});
     }
 
     public entry fun remove_collateral_from_symbol<Collateral, Index, Direction>(
@@ -255,15 +360,19 @@ module perpetual::market {
         pool::remove_collateral_to_symbol<Collateral, Index, Direction>(admin);
     }
 
-    public entry fun set_symbol_status<Index, Direaction>(
+    public entry fun set_symbol_status<Index, Direction>(
         admin: &signer,
         open_enabled: bool,
         decrease_enabled: bool,
         liquidate_enabled: bool
     ) {
         admin::check_permission(signer::address_of(admin));
-        pool::set_symbol_status<Index, Direaction>(admin, open_enabled, decrease_enabled, liquidate_enabled);
-
+        pool::set_symbol_status<Index, Direction>(admin, open_enabled, decrease_enabled, liquidate_enabled);
+        emit(SymbolStatusUpdated<Index, Direction>{
+            open_enabled,
+            decrease_enabled,
+            liquidate_enabled
+        });
     }
 
     public entry fun replace_position_config<Index, Direction>(
@@ -291,6 +400,16 @@ module perpetual::market {
                 liquidation_bonus
             );
         wrapped_position_config.inner = new_positions_config;
+        emit(PositionConfigReplaced<Index, Direction>{
+            max_leverage,
+            min_holding_duration,
+            max_reserved_multiplier,
+            min_collateral_value,
+            open_fee_bps,
+            decrease_fee_bps,
+            liquidation_threshold,
+            liquidation_bonus,
+        });
     }
 
     public entry fun open_position<Collateral, Index, Direction, Fee>(
@@ -356,7 +475,9 @@ module perpetual::market {
                 owner: user_account
             }, order);
             order_record.creation_num = order_record.creation_num + 1;
-            // TODO: emit order created event
+            emit(OrderCreated<Collateral, Index, Direction>{
+                user_account
+            });
 
         } else {
             let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
@@ -392,14 +513,11 @@ module perpetual::market {
                 coin::deposit(referrer, rebate);
             } else {
                 coin::deposit(user_account, rebate);
-            }
+            };
 
-
-            // TODO: emit position opened
-            // event::emit(PositionClaimed {
-            //     position_name: option::some(position_name),
-            //     event,
-            // });
+            emit(OrderExecuted<Collateral, Index, Direction>{
+                executor: user_account
+            });
         }
     }
 
@@ -470,8 +588,7 @@ module perpetual::market {
             }, order);
             order_record.creation_num = order_record.creation_num + 1;
 
-            //TODO: emit order created
-            // event::emit(OrderCreated { order_name, event });
+            emit(OrderCreated<Collateral, Index, Direction> { user_account });
         } else {
             assert!(trade_level > 0, ERR_CAN_NOT_TRADE_IMMEDIATELY);
 
@@ -502,14 +619,7 @@ module perpetual::market {
             coin::deposit<Collateral>(user_account, to_trader);
             coin::deposit<Collateral>(referrer, rebate);
 
-            // no need coin operate here
-            // transfer::public_transfer(fee, owner);
-
-            //TODO: emit decrease position
-            // event::emit(PositionClaimed {
-            //     position_name: option::some(position_name),
-            //     event,
-            // });
+            emit(PositionClaimed<Collateral, Index, Direction> {});
         }
     }
 
@@ -539,12 +649,7 @@ module perpetual::market {
             timestamp
         );
 
-        //TODO: emit decrease reserved from position
-        // event::emit(PositionClaimed {
-        //     position_name: option::some(position_name),
-        //     event,
-        // });
-
+        emit(PositionClaimed<Collateral, Index, Direction> {});
     }
 
     public entry fun pledge_in_position<Collateral, Index, Direction>(
@@ -567,11 +672,7 @@ module perpetual::market {
 
         let event = pool::pledge_in_position(position, coin::withdraw<Collateral>(user, pledge_num));
 
-        // TODO: emit pledge in position
-        // event::emit(PositionClaimed {
-        //     position_name: option::some(position_name),
-        //     event,
-        // });
+        emit(PositionClaimed<Collateral, Index, Direction> {});
     }
 
     public entry fun redeem_from_position<Collateral, Index, Direction>(
@@ -609,11 +710,7 @@ module perpetual::market {
 
         coin::deposit(user_account, redeem);
 
-        //TODO: emit redeem from position
-        // event::emit(PositionClaimed {
-        //     position_name: option::some(position_name),
-        //     event,
-        // });
+        emit(PositionClaimed<Collateral, Index, Direction> {});
 
     }
 
@@ -652,11 +749,7 @@ module perpetual::market {
 
         coin::deposit(liquidator_account, liquidation_fee);
 
-        // TODO: emit liquidate position
-        // event::emit(PositionClaimed {
-        //     position_name: option::some(position_name),
-        //     event,
-        // });
+        emit(PositionClaimed<Collateral, Index, Direction> {});
 
     }
 
@@ -737,17 +830,9 @@ module perpetual::market {
                 coin::deposit(executor_account, rebate);
             } else {
                 coin::deposit(referrer, rebate);
-            }
+            };
 
-            //TODO: emit order executed and open opened
-            // event::emit(OrderExecuted {
-            //     executor,
-            //     order_name,
-            //     claim: PositionClaimed {
-            //         position_name: option::some(position_name),
-            //         event,
-            //     },
-            // });
+            emit(OrderExecuted<Collateral, Index, Direction> { executor: executor_account });
         } else {
             // executed order failed
 
@@ -819,15 +904,7 @@ module perpetual::market {
             coin::deposit(owner, to_trader);
             coin::deposit(referrer, rebate);
 
-            //TODO: emit order executed and position decreased
-            // event::emit(OrderExecuted {
-            //     executor,
-            //     order_name,
-            //     claim: PositionClaimed {
-            //         position_name: option::some(position_name),
-            //         event,
-            //     },
-            // });
+            emit(OrderExecuted<Collateral, Index, Direction> { executor: executor_account });
         } else {
             // executed order failed
             option::destroy_none(result);
@@ -835,15 +912,7 @@ module perpetual::market {
 
             //TODO: assert! maybe abort directly?
 
-            // TODO: emit order executed and decrease closed
-            // event::emit(OrderExecuted {
-            //     executor,
-            //     order_name,
-            //     claim: PositionClaimed {
-            //         position_name: option::some(position_name),
-            //         event,
-            //     },
-            // });
+            emit(OrderExecuted<Collateral, Index, Direction> { executor: executor_account });
         };
 
         coin::deposit(executor_account, fee);
@@ -865,8 +934,7 @@ module perpetual::market {
         let order = table::remove(&mut order_record.open_orders, order_id);
         let (collateral, fee) = orders::destroy_open_position_order(order);
 
-        //TODO: emit order cleared
-        // event::emit(OrderCleared { order_name });
+        emit(OrderCleared<Collateral, Index, Direction> { });
 
         coin::deposit(user_account, collateral);
         coin::deposit(user_account, fee);
@@ -887,8 +955,7 @@ module perpetual::market {
         let order = table::remove(&mut order_record.decrease_orders, order_id);
         let fee = orders::destory_decrease_position_order(order);
 
-        //TODO: emit order cleared
-        // event::emit(OrderCleared { order_name });
+        emit(OrderCleared<Collateral, Index, Direction> { });
 
         coin::deposit(user_account, fee);
 
@@ -922,14 +989,13 @@ module perpetual::market {
         // mint to sender
         lp::mint_to(user, mint_amount);
 
-        //TODO: emit deposited
-        // event::emit(Deposited<C> {
-        //     minter,
-        //     price: agg_price::price_of(&price),
-        //     deposit_amount,
-        //     mint_amount,
-        //     fee_value,
-        // });
+        emit(Deposited<Collateral> {
+            minter: signer::address_of(user),
+            // price: agg_price::price_of(&price),
+            deposit_amount,
+            mint_amount,
+            fee_value,
+        });
     }
 
     public entry fun withdraw<Collateral>(
@@ -960,17 +1026,17 @@ module perpetual::market {
             total_vaults_value,
             total_weight,
         );
+        let withdraw_amount = coin::value(&withdraw);
 
         coin::deposit(signer::address_of(user), withdraw);
 
-        //TODO: emit withdrawn
-        // event::emit(Withdrawn<C> {
-        //     burner,
-        //     price: agg_price::price_of(&price),
-        //     withdraw_amount,
-        //     burn_amount,
-        //     fee_value,
-        // });
+        emit(Withdrawn<Collateral> {
+            burner: signer::address_of(user),
+            // price: agg_price::price_of(&price),
+            withdraw_amount,
+            burn_amount: lp_burn_amount,
+            fee_value,
+        });
 
     }
 
@@ -1011,20 +1077,18 @@ module perpetual::market {
             total_vaults_value,
             total_weight,
         );
+        let dest_amount = coin::value(&receiving);
 
         coin::deposit(user_account, receiving);
 
-        //TODO: emit swapped
-        // event::emit(Swapped<S, D> {
-        //     swapper,
-        //     source_price: agg_price::price_of(&source_price),
-        //     dest_price: agg_price::price_of(&dest_price),
-        //     source_amount,
-        //     dest_amount,
-        //     fee_value: decimal::add(source_fee_value, dest_fee_value),
-        // });
-
-
+        emit(Swapped<Source, Destination> {
+            swapper: user_account,
+            // source_price: agg_price::price_of(&source_price),
+            // dest_price: agg_price::price_of(&dest_price),
+            source_amount: amount_in,
+            dest_amount,
+            fee_value: decimal::add(source_fee_value, dest_fee_value),
+        });
 
     }
 
