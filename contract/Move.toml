@@ -11,9 +11,9 @@ perpetual = "0x87e95448bc9088569ed1f9b724a1ec679a187a1c80ff49b52c305318956c4bb7"
 [dependencies.Pyth]
 local = "../vendor"
 
-[dependencies.AptosFramework]
-git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "mainnet"
-subdir = "aptos-move/framework/aptos-framework"
+#[dependencies.AptosFramework]
+#git = "https://github.com/aptos-labs/aptos-core.git"
+#rev = "mainnet"
+#subdir = "aptos-move/framework/aptos-framework"
 
 [dev-dependencies]

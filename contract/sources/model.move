@@ -96,12 +96,5 @@ module perpetual::model {
         )
     }
 
-    public fun update_rebase_fee_model(model: &mut RebaseFeeModel) {}
-    public fun update_reserving_fee_model(model: &mut ReservingFeeModel) {}
-    public fun update_funding_fee_model(model: &mut FundingFeeModel) {}
-
-
-
-
 
 }
