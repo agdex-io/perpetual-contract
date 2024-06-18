@@ -202,7 +202,8 @@ module perpetual::market {
         };
         move_to(admin, market);
 
-        emit(MarketCreated{});
+        // https://github.com/aptos-labs/aptos-core/issues/11038
+        // emit(MarketCreated{});
     }
 
     public entry fun add_new_vault<Collateral>(
@@ -1116,6 +1117,27 @@ module perpetual::market {
         let symbol_total_value = pool::symbol_valuation();
         let market_value = sdecimal::add_with_decimal(symbol_total_value, vault_total_value);
         (vault_total_weight, vault_total_value, sdecimal::value(&market_value))
+    }
+
+    #[view]
+    public fun to_lp_exchage_rate(deposit_value: u128): Rate {
+        let (_, _, market_value) = finalize_market_valuation();
+        let deposit_value_decimal = decimal::from_u128(deposit_value);
+        let exchange_rate = decimal::to_rate(
+            decimal::div(deposit_value_decimal, market_value)
+        );
+        exchange_rate
+    }
+
+    #[view]
+    public fun to_collateral_exchage_rate(burn_amount: u64): Rate {
+        let exchange_rate = decimal::to_rate(
+            decimal::div(
+                decimal::from_u64(burn_amount),
+                lp_supply_amount(),
+            )
+        );
+        exchange_rate
     }
 
 

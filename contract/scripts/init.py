@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x87e95448bc9088569ed1f9b724a1ec679a187a1c80ff49b52c305318956c4bb7"
+contract_address = "0x07fc23d16b00e989d8b9a06276b84887bfec4a2010a4c3d9e31dbe1396f14044"
 
 
 class MarketClient(RestClient):
@@ -277,27 +277,27 @@ class MarketClient(RestClient):
 
 #
 async def main():
-    sender = Account.load_key("0xbd7f26f79f52b7248b89a8eac0abefc4b34bd615dc0a04ee7829b5dbad588a71")
+    sender = Account.load_key("0x306d72110d868308eea4f7389a7cd2f2b7571d1b019ca0607c99133682d2b4c3")
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
     rest_client = MarketClient(NODE_URL)
-    # txn_hash = await rest_client.add_new_vault(sender, "0x1::aptos_coin::AptosCoin", 100000000000000000, 20, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 800000000000000)
+    # txn_hash = await rest_client.add_new_vault(sender, "0x1::aptos_coin::AptosCoin", 100000000000000000, 200, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 800000000000000)
     # txn_hash = await rest_client.add_new_vault(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", 100000000000000000, 200, 18446744073709551615, list(bytes.fromhex("41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722")), 800000000000000)
     # txn_hash = await rest_client.add_new_vault(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", 100000000000000000, 200, 18446744073709551615, list(bytes.fromhex("1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588")), 800000000000000)
-    # txn_hash = await rest_client.add_new_symbol(sender, "0x1::aptos_coin::AptosCoin", "LONG", 20, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
+    # txn_hash = await rest_client.add_new_symbol(sender, "0x1::aptos_coin::AptosCoin", "LONG", 200, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "LONG", 200, 18446744073709551615, list(bytes.fromhex("f9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "LONG", 200, 18446744073709551615, list(bytes.fromhex("ca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x1::aptos_coin::AptosCoin", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("f9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("ca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
-    # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "SHORT")
+    txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x1::aptos_coin::AptosCoin", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH",  "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "LONG")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
-    txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "SHORT")
+    # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "SHORT")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 1000000, 0)
     # txn_hash = await rest_client.withdraw(sender, "0x1::aptos_coin::AptosCoin", AccountAddress.from_str("0xf8f15c74686cfeb3091756f58d4e367c9f18685abe213621dd51acde2031ecff"), 4000, 0)
     # txn_hash = await rest_client.open_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", "0x1::aptos_coin::AptosCoin", 1, 1000000, 1000000, 1000000, 10, 8163025540, 8108650100000000000)
