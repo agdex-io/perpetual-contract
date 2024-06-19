@@ -1115,24 +1115,32 @@ module perpetual::market {
     }
 
     #[view]
-    public fun to_lp_exchage_rate(deposit_value: u128): Rate {
+    public fun to_lp_amount<Collateral>(deposit_amount: u64): u64 {
         let (_, _, market_value) = finalize_market_valuation();
-        let deposit_value_decimal = decimal::from_u128(deposit_value);
+        let deposit_value_decimal = pool::collateral_value<Collateral>(deposit_amount);
+        let lp_supply_amount = pool::lp_supply_amount();
         let exchange_rate = decimal::to_rate(
             decimal::div(deposit_value_decimal, market_value)
         );
-        exchange_rate
+        decimal::floor_u64(
+            decimal::mul_with_rate(
+                lp_supply_amount,
+                exchange_rate,
+            )
+        )
     }
 
     #[view]
-    public fun to_collateral_exchage_rate(burn_amount: u64): Rate {
+    public fun to_collateral_amount<Collateral>(lp_burn_amount: u64): u64 {
+        let (_, _, market_value) = finalize_market_valuation();
         let exchange_rate = decimal::to_rate(
             decimal::div(
-                decimal::from_u64(burn_amount),
-                lp_supply_amount(),
+                decimal::from_u64(lp_burn_amount),
+                pool::lp_supply_amount(),
             )
         );
-        exchange_rate
+        let withdraw_value = decimal::mul_with_rate(market_value, exchange_rate);
+        pool::collateral_amount<Collateral>(withdraw_value)
     }
 
 
