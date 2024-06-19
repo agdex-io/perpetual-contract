@@ -56,5 +56,4 @@ module perpetual::lp {
         option::destroy_some(op_supply)
     }
 
-
 }

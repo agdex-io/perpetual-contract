@@ -1164,10 +1164,7 @@ module perpetual::pool {
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6
         let supply = lp::get_supply();
-        decimal::div_by_u64(
-            decimal::from_u128(supply),
-            1_000_000,
-        )
+        decimal::from_u128(supply)
     }
 
     public fun parse_direction<Direction>(): bool {
