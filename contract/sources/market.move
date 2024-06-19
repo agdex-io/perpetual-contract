@@ -1019,8 +1019,6 @@ module perpetual::market {
     ) acquires Market {
         pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
-        // burn lp
-        lp::burn(user, lp_burn_amount);
         let (
             total_weight,
             total_vaults_value,
@@ -1040,6 +1038,8 @@ module perpetual::market {
             total_weight,
         );
         let withdraw_amount = coin::value(&withdraw);
+        // burn lp
+        lp::burn(user, lp_burn_amount);
 
         coin::deposit(signer::address_of(user), withdraw);
 
