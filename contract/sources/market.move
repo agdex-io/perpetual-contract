@@ -18,9 +18,6 @@ module perpetual::market {
     use aptos_framework::coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
-    use aptos_framework::fungible_asset;
-    use aptos_framework::fungible_asset::{FungibleStore};
-    use aptos_framework::object::{Object};
     use aptos_framework::event::emit;
     use perpetual::agg_price::AggPrice;
 
@@ -1016,7 +1013,6 @@ module perpetual::market {
 
     public entry fun withdraw<Collateral>(
         user: &signer,
-        lp_store: Object<FungibleStore>,
         lp_burn_amount: u64,
         min_amount_out: u64,
         vaas: vector<vector<u8>>
@@ -1024,8 +1020,7 @@ module perpetual::market {
         pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         // burn lp
-        let fa = fungible_asset::withdraw(user, lp_store, lp_burn_amount);
-        lp::burn(fa);
+        lp::burn(user, lp_burn_amount);
         let (
             total_weight,
             total_vaults_value,

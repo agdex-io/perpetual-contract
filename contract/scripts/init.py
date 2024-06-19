@@ -109,6 +109,7 @@ class MarketClient(RestClient):
             [
                 TransactionArgument(deposit_amount, Serializer.u64),
                 TransactionArgument(min_amount_out, Serializer.u64),
+                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
             ]
         )
         signed_transaction = await self.create_bcs_signed_transaction(
@@ -290,7 +291,7 @@ async def main():
     # txn_hash = await rest_client.add_new_symbol(sender, "0x1::aptos_coin::AptosCoin", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("f9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
     # txn_hash = await rest_client.add_new_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "SHORT", 200, 18446744073709551615, list(bytes.fromhex("ca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6")), 20000000000000000, 7500000000000000, 100, 20, 20, 500000000000000, 1000000000000000, 1000000000000000, 980000000000000000, 10000000000000000)
-    txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "SHORT")
+    # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x1::aptos_coin::AptosCoin", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x1::aptos_coin::AptosCoin", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH",  "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", "SHORT")
@@ -298,7 +299,7 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::ETH::ETH", "SHORT")
-    # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 1000000, 0)
+    txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
     # txn_hash = await rest_client.withdraw(sender, "0x1::aptos_coin::AptosCoin", AccountAddress.from_str("0xf8f15c74686cfeb3091756f58d4e367c9f18685abe213621dd51acde2031ecff"), 4000, 0)
     # txn_hash = await rest_client.open_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", "0x1::aptos_coin::AptosCoin", 1, 1000000, 1000000, 1000000, 10, 8163025540, 8108650100000000000)
     # txn_hash = await rest_client.decrease_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", "0x1::aptos_coin::AptosCoin", 1, 100, False, 1000, 8163025540, 8108650100000000000, 0)
