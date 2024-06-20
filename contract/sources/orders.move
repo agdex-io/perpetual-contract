@@ -187,10 +187,6 @@ module perpetual::orders {
             );
         };
 
-        let index_price = agg_price::parse_pyth_feeder(
-            &pool::symbol_price_config<Index, Direction>(),
-            timestamp
-        );
         // update order status
         order.executed = true;
         // withdraw fee

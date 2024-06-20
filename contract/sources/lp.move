@@ -1,58 +1,59 @@
 module perpetual::lp {
 
+
     use std::option;
+    use std::signer;
     use std::string;
-    use aptos_framework::object;
-    use aptos_framework::fungible_asset::{Self, MintRef, BurnRef, generate_burn_ref, Metadata, FungibleAsset};
+    use aptos_framework::coin::{Self, BurnCapability, FreezeCapability, MintCapability};
 
     friend perpetual::market;
 
-    struct LP has key {}
+    struct LP {}
 
-    struct RefAbility has key {
-        mint_ref: MintRef,
-        burn_ref: BurnRef
+    struct MoneyCapabilities has key {
+        burn_cap: BurnCapability<LP>,
+        freeze_cap: FreezeCapability<LP>,
+        mint_cap: MintCapability<LP>,
     }
 
-    fun init_module(account: &signer) {
-        // TODO: coin metadata
-        let creator_ref = object::create_named_object(account, b"TEST");
-        fungible_asset::add_fungibility(
-            &creator_ref,
-            option::some(1000000000000000000) /* max supply */,
-            string::utf8(b"TEST"),
-            string::utf8(b"@@"),
+    fun init_module(sender: &signer) {
+        let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<LP>(
+            sender,
+            string::utf8(b"Mock LP"),
+            string::utf8(b"LP"),
             6,
-            string::utf8(b"http://www.example.com/favicon.ico"),
-            string::utf8(b"http://www.example.com"),
+            true,
         );
-        let mint_ref = fungible_asset::generate_mint_ref(&creator_ref);
-        let burn_ref = generate_burn_ref(&creator_ref);
-        move_to(account, RefAbility{
-            mint_ref,
-            burn_ref
+
+        move_to(sender, MoneyCapabilities{
+            burn_cap,
+            freeze_cap,
+            mint_cap
         })
     }
 
-    public(friend) fun mint_to(user: &signer, mint_amount: u64) acquires RefAbility {
-        let ref_ability = borrow_global<RefAbility>(@perpetual);
-        let metadata = fungible_asset::mint_ref_metadata(&ref_ability.mint_ref);
-        let user_store =
-            fungible_asset::create_store<Metadata>(&object::create_object_from_account(user), metadata);
-        let fa = fungible_asset::mint(&ref_ability.mint_ref, mint_amount);
-        fungible_asset::deposit(user_store, fa);
+    public(friend) fun mint_to(sender: &signer, amount: u64) acquires MoneyCapabilities {
+        if (!coin::is_account_registered<LP>(signer::address_of((sender)))) {
+            coin::register<LP>(sender);
+        };
+
+        let cap = borrow_global_mut<MoneyCapabilities>(@perpetual);
+        let lp_coin = coin::mint<LP>(amount, &cap.mint_cap);
+        coin::deposit(signer::address_of(sender), lp_coin);
     }
 
-    public(friend) fun burn(fa: FungibleAsset) acquires RefAbility {
-        let ref_ability = borrow_global<RefAbility>(@perpetual);
-        fungible_asset::burn(&ref_ability.burn_ref, fa);
+    public(friend) fun burn(sender: &signer, amount: u64) acquires MoneyCapabilities {
+        if (!coin::is_account_registered<LP>(signer::address_of((sender)))) {
+            coin::register<LP>(sender);
+        };
+
+        let cap = borrow_global_mut<MoneyCapabilities>(@perpetual);
+        coin::burn_from<LP>(signer::address_of(sender), amount, &cap.burn_cap);
     }
 
-    public fun get_supply(): u128 acquires RefAbility {
-        let ref_ability = borrow_global<RefAbility>(@perpetual);
-        let supply_opt =
-            fungible_asset::supply(fungible_asset::mint_ref_metadata(&ref_ability.mint_ref));
-        option::destroy_some(supply_opt)
+    public fun get_supply(): u128 {
+        let op_supply = coin::supply<LP>();
+        option::destroy_some(op_supply)
     }
 
 }

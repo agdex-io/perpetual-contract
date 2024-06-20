@@ -14,14 +14,10 @@ module perpetual::market {
     use perpetual::agg_price;
     use perpetual::referral::{Self, Referral};
     use aptos_std::type_info;
-    use aptos_framework::aptos_account::DirectCoinTransferConfigUpdatedEvent;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
-    use aptos_framework::fungible_asset;
-    use aptos_framework::fungible_asset::{FungibleStore};
-    use aptos_framework::object::{Object};
     use aptos_framework::event::emit;
     use perpetual::agg_price::AggPrice;
 
@@ -203,7 +199,8 @@ module perpetual::market {
         };
         move_to(admin, market);
 
-        emit(MarketCreated{});
+        // https://github.com/aptos-labs/aptos-core/issues/11038
+        // emit(MarketCreated{});
     }
 
     public entry fun add_new_vault<Collateral>(
@@ -420,9 +417,11 @@ module perpetual::market {
         collateral_amount: u64,
         fee_amount: u64,
         collateral_price_threshold: u256,
-        limited_index_price: u256
+        limited_index_price: u256,
+        vaas: vector<vector<u8>>
     ) acquires Market, WrappedPositionConfig, OrderRecord, PositionRecord {
         let user_account = signer::address_of(user);
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
         let lp_supply_amount = lp_supply_amount();
@@ -497,7 +496,7 @@ module perpetual::market {
             assert!(code == 0, code);
             //coin::destroy_zero(collateral);
 
-            let (position, rebate, event) =
+            let (position, rebate, _event) =
                 pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
 
             // add position into record
@@ -529,9 +528,11 @@ module perpetual::market {
         decrease_amount: u64,
         collateral_price_threshold: u256,
         limited_index_price: u256,
-        position_num: u64
+        position_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
         let user_account = signer::address_of(user);
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
         let lp_supply_amount = lp_supply_amount();
@@ -613,7 +614,7 @@ module perpetual::market {
             assert!(code == 0, code);
 
             let res = option::destroy_some(result);
-            let (to_trader, rebate, event) =
+            let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result<Collateral>(res);
 
             coin::deposit<Collateral>(user_account, to_trader);
@@ -626,8 +627,10 @@ module perpetual::market {
     public entry fun decrease_reserved_from_position<Collateral, Index, Direction>(
         user: &signer,
         decrease_amount: u64,
-        position_num: u64
+        position_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires PositionRecord {
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let timestamp = timestamp::now_seconds();
         let user_account = signer::address_of(user);
 
@@ -643,7 +646,7 @@ module perpetual::market {
             position_id
         );
 
-        let event = pool::decrease_reserved_from_position(
+        let _event = pool::decrease_reserved_from_position(
             position,
             decrease_amount,
             timestamp
@@ -670,7 +673,7 @@ module perpetual::market {
             position_id
         );
 
-        let event = pool::pledge_in_position(position, coin::withdraw<Collateral>(user, pledge_num));
+        let _event = pool::pledge_in_position(position, coin::withdraw<Collateral>(user, pledge_num));
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
     }
@@ -678,8 +681,10 @@ module perpetual::market {
     public entry fun redeem_from_position<Collateral, Index, Direction>(
         user: &signer,
         redeem_amount: u64,
-        position_num: u64
+        position_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
 
@@ -700,7 +705,7 @@ module perpetual::market {
             position_id
         );
 
-        let (redeem, event) = pool::redeem_from_position<Collateral, Index, Direction>(
+        let (redeem, _event) = pool::redeem_from_position<Collateral, Index, Direction>(
             position,
             long,
             redeem_amount,
@@ -718,7 +723,9 @@ module perpetual::market {
         liquidator: &signer,
         owner: address,
         position_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
+        pyth::pyth::update_price_feeds_with_funder(liquidator, vaas);
         let liquidator_account = signer::address_of(liquidator);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
@@ -739,7 +746,7 @@ module perpetual::market {
             position_id
         );
 
-        let (liquidation_fee, event) = pool::liquidate_position<Collateral, Index, Direction>(
+        let (liquidation_fee, _event) = pool::liquidate_position<Collateral, Index, Direction>(
             position,
             long,
             lp_supply_amount,
@@ -779,7 +786,9 @@ module perpetual::market {
         executor: &signer,
         owner: address,
         order_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
+        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
@@ -810,7 +819,7 @@ module perpetual::market {
             timestamp,
         );
         if (code == 0) {
-            let (position, rebate, event) =
+            let (position, rebate, _event) =
                 pool::unwrap_open_position_result(option::destroy_some(result));
 
             let position_record =
@@ -837,7 +846,7 @@ module perpetual::market {
             // executed order failed
 
             option::destroy_none(result);
-            let event = option::destroy_some(failure);
+            let _event = option::destroy_some(failure);
             //TODO: maybe should panic here directly?
             assert!(code == 0, code);
             // emit order executed and open failed
@@ -860,7 +869,9 @@ module perpetual::market {
         owner: address,
         order_num: u64,
         position_num: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market, OrderRecord, PositionRecord {
+        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(!market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED);
@@ -898,7 +909,7 @@ module perpetual::market {
                 timestamp,
         );
         if (code == 0) {
-            let (to_trader, rebate, event) =
+            let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result(option::destroy_some(result));
 
             coin::deposit(owner, to_trader);
@@ -908,7 +919,7 @@ module perpetual::market {
         } else {
             // executed order failed
             option::destroy_none(result);
-            let event = option::destroy_some(failure);
+            let _event = option::destroy_some(failure);
 
             //TODO: assert! maybe abort directly?
 
@@ -965,7 +976,9 @@ module perpetual::market {
         user: &signer,
         deposit_amount: u64,
         min_amount_out: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market {
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (
             total_weight,
@@ -1000,14 +1013,12 @@ module perpetual::market {
 
     public entry fun withdraw<Collateral>(
         user: &signer,
-        lp_store: Object<FungibleStore>,
         lp_burn_amount: u64,
         min_amount_out: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market {
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
-        // burn lp
-        let fa = fungible_asset::withdraw(user, lp_store, lp_burn_amount);
-        lp::burn(fa);
         let (
             total_weight,
             total_vaults_value,
@@ -1027,6 +1038,8 @@ module perpetual::market {
             total_weight,
         );
         let withdraw_amount = coin::value(&withdraw);
+        // burn lp
+        lp::burn(user, lp_burn_amount);
 
         coin::deposit(signer::address_of(user), withdraw);
 
@@ -1044,7 +1057,9 @@ module perpetual::market {
         user: &signer,
         amount_in: u64,
         min_amount_out: u64,
+        vaas: vector<vector<u8>>
     ) acquires Market {
+        pyth::pyth::update_price_feeds_with_funder(user, vaas);
         assert!(
             type_info::type_name<Source>() != type_info::type_name<Destination>(),
             ERR_SWAPPING_SAME_COINS,
@@ -1054,7 +1069,7 @@ module perpetual::market {
         let (
             total_weight,
             total_vaults_value,
-            market_value,
+            _market_value,
         ) = finalize_market_valuation();
         let source_vault_value = pool::vault_value<Source>(timestamp::now_seconds());
         let destination_vault_value = pool::vault_value<Destination>(timestamp::now_seconds());
@@ -1097,6 +1112,35 @@ module perpetual::market {
         let symbol_total_value = pool::symbol_valuation();
         let market_value = sdecimal::add_with_decimal(symbol_total_value, vault_total_value);
         (vault_total_weight, vault_total_value, sdecimal::value(&market_value))
+    }
+
+    #[view]
+    public fun to_lp_amount<Collateral>(deposit_amount: u64): u64 {
+        let (_, _, market_value) = finalize_market_valuation();
+        let deposit_value_decimal = pool::collateral_value<Collateral>(deposit_amount);
+        let lp_supply_amount = pool::lp_supply_amount();
+        let exchange_rate = decimal::to_rate(
+            decimal::div(deposit_value_decimal, market_value)
+        );
+        decimal::floor_u64(
+            decimal::mul_with_rate(
+                lp_supply_amount,
+                exchange_rate,
+            )
+        )
+    }
+
+    #[view]
+    public fun to_collateral_amount<Collateral>(lp_burn_amount: u64): u64 {
+        let (_, _, market_value) = finalize_market_valuation();
+        let exchange_rate = decimal::to_rate(
+            decimal::div(
+                decimal::from_u64(lp_burn_amount),
+                pool::lp_supply_amount(),
+            )
+        );
+        let withdraw_value = decimal::mul_with_rate(market_value, exchange_rate);
+        pool::collateral_amount<Collateral>(withdraw_value)
     }
 
 

@@ -1164,10 +1164,7 @@ module perpetual::pool {
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6
         let supply = lp::get_supply();
-        decimal::div_by_u64(
-            decimal::from_u128(supply),
-            1_000_000,
-        )
+        decimal::from_u128(supply)
     }
 
     public fun parse_direction<Direction>(): bool {
@@ -1212,6 +1209,32 @@ module perpetual::pool {
         value = value / 1_000_000_000_000;
 
         (value as u64)
+    }
+
+    public(friend) fun collateral_value<Collateral>(amount: u64): Decimal acquires Vault{
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+        agg_price::coins_to_value(&collateral_price, amount)
+    }
+
+    public(friend) fun collateral_amount<Collateral>(value: Decimal): u64 acquires Vault{
+        let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
+        let timestamp = timestamp::now_seconds();
+        let collateral_price = agg_price::parse_pyth_feeder(
+            &vault.price_config,
+            timestamp
+        );
+
+        let withdraw_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, value)
+        );
+        withdraw_amount
+
     }
 
 }
