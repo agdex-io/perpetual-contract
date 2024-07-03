@@ -379,6 +379,29 @@ module perpetual::pool {
         (withdraw, fee_value)
     }
 
+
+    
+    public(friend) fun possible_swap_fee_rate<Collateral>(
+        model: &RebaseFeeModel,
+        increase: bool,
+        vault_value: Decimal,
+        total_vault_value: Decimal,
+        total_weight: Decimal
+    ): Rate acquires Vault {
+        let v = borrow_global_mut<Vault<Collateral>>(@perpetual);
+
+        let fee_rate = compute_rebase_fee_rate(
+            model,
+            increase,
+            vault_value,
+            total_vault_value,
+            v.weight,
+            total_weight,
+        );
+
+        fee_rate
+    }
+
     public(friend) fun swap_in<Source>(
         model: &RebaseFeeModel,
         source: Coin<Source>,

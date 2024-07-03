@@ -1053,6 +1053,44 @@ module perpetual::market {
 
     }
 
+    #[view]
+    public fun calculate_swap_fee<Source, Destination>(): (Rate, Rate) acquires Market {
+        
+        // borrow market and valuate market
+        let market = borrow_global_mut<Market>(@perpetual);
+        let (
+            total_weight,
+            total_vaults_value,
+            _market_value,
+        ) = finalize_market_valuation();
+
+        // timestamp
+        let timestamp = timestamp::now_seconds();
+
+        // vault value
+        let source_vault_value = pool::vault_value<Source>(timestamp);
+        let dest_vault_value = pool::vault_value<Destination>(timestamp);
+
+        let swap_in_rate = pool::possible_swap_fee_rate<Source>(
+            &market.rebase_model,
+            true,
+            source_vault_value,
+            total_vaults_value,
+            total_weight
+        );
+
+        let swap_out_rate = pool::possible_swap_fee_rate<Destination>(
+            &market.rebase_model,
+            false,
+            dest_vault_value,
+            total_vaults_value,
+            total_weight
+        );
+        
+        (swap_in_rate, swap_out_rate)
+    }
+
+
     public entry fun swap<Source, Destination>(
         user: &signer,
         amount_in: u64,
