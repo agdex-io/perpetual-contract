@@ -35,6 +35,7 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         fee: Coin<CoinType>,
+        position_num: u64
     }
 
     // === Events ===
@@ -89,6 +90,7 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         fee: Coin<Fee>,
+        position_num: u64
     ): DecreasePositionOrder<Fee> {
         // let event = CreateDecreasePositionOrderEvent {
         //     take_profit,
@@ -105,6 +107,7 @@ module perpetual::orders {
             limited_index_price,
             collateral_price_threshold,
             fee,
+            position_num
         };
 
         // (order, event)
@@ -235,6 +238,7 @@ module perpetual::orders {
             limited_index_price: _,
             collateral_price_threshold: _,
             fee,
+            position_num: _
         } = order;
 
         fee
