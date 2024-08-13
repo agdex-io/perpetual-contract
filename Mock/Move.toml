@@ -10,7 +10,7 @@ mock="0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "mainnet"
+rev = "6f83bc6d02207298b2dee91133d75538789bf582"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dev-dependencies]

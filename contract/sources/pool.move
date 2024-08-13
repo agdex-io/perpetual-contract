@@ -16,6 +16,10 @@ module perpetual::pool {
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::timestamp;
     use perpetual::lp;
+    use mock::usdc::USDC;
+    use mock::usdt::USDT;
+    use mock::btc::BTC;
+    use mock::ETH::ETH;
 
     friend perpetual::market;
     friend perpetual::orders;
@@ -1084,6 +1088,8 @@ module perpetual::pool {
         let total_weight = decimal::zero();
         // loop through all of vault
         let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<USDC>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<USDT>(timestamp, total_value, total_weight);
 
         (total_value, total_weight)
 
@@ -1095,7 +1101,12 @@ module perpetual::pool {
         let total_value = sdecimal::zero();
 
         // loop through all of Symbol
-        let total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AptosCoin, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BTC, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BTC, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<ETH, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<ETH, SHORT>(timestamp, lp_supply_amount, total_value);
 
         total_value
 
