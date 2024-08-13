@@ -1036,8 +1036,13 @@ module perpetual::market {
     ) acquires Market {
         pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
-        let (total_weight, total_vaults_value, market_value,) =
-            finalize_market_valuation();
+        let (total_weight, total_vaults_value, market_value,) = finalize_market_valuation();
+        let adjusted_market_value =
+        if (decimal::is_zero(&market_value)) {
+            decimal::from_u64(10_000_000)
+        } else {
+            market_value
+        };
 
         let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
 
@@ -1047,7 +1052,7 @@ module perpetual::market {
                 &market.rebase_model,
                 deposit_amount,
                 min_amount_out,
-                market_value,
+                adjusted_market_value,
                 vault_value,
                 total_vaults_value,
                 total_weight,
@@ -1212,10 +1217,17 @@ module perpetual::market {
     #[view]
     public fun to_lp_amount<Collateral>(deposit_amount: u64): u64 {
         let (_, _, market_value) = finalize_market_valuation();
+        let adjusted_market_value =
+            if (decimal::is_zero(&market_value)) {
+                decimal::from_u64(10_000_000)
+            } else {
+                market_value
+            };
+
         let deposit_value_decimal = pool::collateral_value<Collateral>(deposit_amount);
         let lp_supply_amount = pool::lp_supply_amount();
         let exchange_rate =
-            decimal::to_rate(decimal::div(deposit_value_decimal, market_value));
+            decimal::to_rate(decimal::div(deposit_value_decimal, adjusted_market_value));
         decimal::floor_u64(
             decimal::mul_with_rate(
                 lp_supply_amount,
