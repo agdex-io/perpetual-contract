@@ -16,43 +16,90 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x9e54d3231b270990fde73545f034dfa771696759e4f40ef8d5fc214cf88b4c6f"
+contract_address = "0xd7b83a04de1c2dd514f7a5b452b2b20649ede6c0f4e0181c82ec1c154c7f185c"
 
 
 class MarketClient(RestClient):
 
-
-    async def add_new_vault(self, sender: Account, collateral_type, weight, max_interval, max_price_confidence, feeder, param_multiplier) -> str:
-
+    async def add_acl(self, sender: Account, address) -> str:
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "add_new_vault",
-            [TypeTag(StructTag.from_str(collateral_type))],
+            [],
             [
-                TransactionArgument(weight, Serializer.u256),
-                TransactionArgument(max_interval, Serializer.u64),
-                TransactionArgument(max_price_confidence, Serializer.u64),
-                TransactionArgument(feeder, Serializer.sequence_serializer(Serializer.u8)),
-                TransactionArgument(param_multiplier, Serializer.u256)
-            ]
+                TransactionArgument(
+                    address, Serializer.sequence_serializer(Serializer.struct)
+                ),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def add_new_symbol(self, sender: Account, index, direction, max_interval, max_price_confidence, feeder, param_multiplier, 
-                             param_max, max_leverage, min_holding_duration, max_reserved_multiplier, min_collateral_value, 
-                             oepn_fee_bps, decrease_fee_bps, liquidation_threshold, liquidation_bonus) -> str:
+    async def add_new_vault(
+        self,
+        sender: Account,
+        collateral_type,
+        weight,
+        max_interval,
+        max_price_confidence,
+        feeder,
+        param_multiplier,
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
+            "add_new_vault",
+            [TypeTag(StructTag.from_str(collateral_type))],
+            [
+                TransactionArgument(weight, Serializer.u256),
+                TransactionArgument(max_interval, Serializer.u64),
+                TransactionArgument(max_price_confidence, Serializer.u64),
+                TransactionArgument(
+                    feeder, Serializer.sequence_serializer(Serializer.u8)
+                ),
+                TransactionArgument(param_multiplier, Serializer.u256),
+            ],
+        )
+        signed_transaction = await self.create_bcs_signed_transaction(
+            sender, TransactionPayload(payload)
+        )
+        return await self.submit_bcs_transaction(signed_transaction)
+
+    async def add_new_symbol(
+        self,
+        sender: Account,
+        index,
+        direction,
+        max_interval,
+        max_price_confidence,
+        feeder,
+        param_multiplier,
+        param_max,
+        max_leverage,
+        min_holding_duration,
+        max_reserved_multiplier,
+        min_collateral_value,
+        oepn_fee_bps,
+        decrease_fee_bps,
+        liquidation_threshold,
+        liquidation_bonus,
+    ) -> str:
+
+        payload = EntryFunction.natural(
+            contract_address + "::market",
             "add_new_symbol",
-            [TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
+            [
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
             [
                 TransactionArgument(max_interval, Serializer.u64),
                 TransactionArgument(max_price_confidence, Serializer.u64),
-                TransactionArgument(feeder, Serializer.sequence_serializer(Serializer.u8)),
+                TransactionArgument(
+                    feeder, Serializer.sequence_serializer(Serializer.u8)
+                ),
                 TransactionArgument(param_multiplier, Serializer.u256),
                 TransactionArgument(param_max, Serializer.u128),
                 TransactionArgument(max_leverage, Serializer.u64),
@@ -62,101 +109,158 @@ class MarketClient(RestClient):
                 TransactionArgument(oepn_fee_bps, Serializer.u128),
                 TransactionArgument(decrease_fee_bps, Serializer.u128),
                 TransactionArgument(liquidation_threshold, Serializer.u128),
-                TransactionArgument(liquidation_bonus, Serializer.u128)
-            ]
+                TransactionArgument(liquidation_bonus, Serializer.u128),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def add_collateral_to_symbol(self, sender: Account, collateral, index, direction) -> str:
+    async def add_collateral_to_symbol(
+        self, sender: Account, collateral, index, direction
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "add_collateral_to_symbol",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
-            []
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
+            [],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def replace_symbol_feeder(self, sender: Account, index, direction, feeder, max_interval, max_price_confidence) -> str:
+    async def replace_symbol_feeder(
+        self,
+        sender: Account,
+        index,
+        direction,
+        feeder,
+        max_interval,
+        max_price_confidence,
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "replace_symbol_feeder",
-            [TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
             [
-                TransactionArgument(feeder, Serializer.sequence_serializer(Serializer.u8)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
+            [
+                TransactionArgument(
+                    feeder, Serializer.sequence_serializer(Serializer.u8)
+                ),
                 TransactionArgument(max_interval, Serializer.u64),
                 TransactionArgument(max_price_confidence, Serializer.u64),
-            ]
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def deposit(self, sender: Account, collateral, deposit_amount, min_amount_out) -> str:
+    async def deposit(
+        self, sender: Account, collateral, deposit_amount, min_amount_out
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "deposit",
             [TypeTag(StructTag.from_str(collateral))],
             [
                 TransactionArgument(deposit_amount, Serializer.u64),
                 TransactionArgument(min_amount_out, Serializer.u64),
-                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
-            ]
+                TransactionArgument(
+                    [],
+                    Serializer.sequence_serializer(
+                        Serializer.sequence_serializer(Serializer.u8)
+                    ),
+                ),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def withdraw(self, sender: Account, collateral, lp_burn_amount, min_amount_out) -> str:
+    async def withdraw(
+        self, sender: Account, collateral, lp_burn_amount, min_amount_out
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "withdraw",
             [TypeTag(StructTag.from_str(collateral))],
             [
                 TransactionArgument(lp_burn_amount, Serializer.u64),
                 TransactionArgument(min_amount_out, Serializer.u64),
-                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
-            ]
+                TransactionArgument(
+                    [],
+                    Serializer.sequence_serializer(
+                        Serializer.sequence_serializer(Serializer.u8)
+                    ),
+                ),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def swap(self, sender: Account, source, destination, amount_in, min_amount_out) -> str:
+    async def swap(
+        self, sender: Account, source, destination, amount_in, min_amount_out
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "swap",
-            [TypeTag(StructTag.from_str(source), TypeTag(StructTag.from_str(destination)))],
+            [
+                TypeTag(
+                    StructTag.from_str(source), TypeTag(StructTag.from_str(destination))
+                )
+            ],
             [
                 TransactionArgument(amount_in, Serializer.u64),
                 TransactionArgument(min_amount_out, Serializer.u64),
-            ]
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def open_position(self, sender: Account, collateral, index, direction, fee, trade_level, open_amount, 
-                            reserve_amount, collateral_amount, fee_amount, collateral_price_threshold, limited_index_price) -> str:
+    async def open_position(
+        self,
+        sender: Account,
+        collateral,
+        index,
+        direction,
+        fee,
+        trade_level,
+        open_amount,
+        reserve_amount,
+        collateral_amount,
+        fee_amount,
+        collateral_price_threshold,
+        limited_index_price,
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "open_position",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction)), TypeTag(StructTag.from_str(fee))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+                TypeTag(StructTag.from_str(fee)),
+            ],
             [
                 TransactionArgument(trade_level, Serializer.u8),
                 TransactionArgument(open_amount, Serializer.u64),
@@ -173,13 +277,31 @@ class MarketClient(RestClient):
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def decrease_position(self, sender: Account, collateral, index, direction, fee, trade_level, fee_amount, 
-                            take_profit, decrease_amount, collateral_price_threshold, limited_index_price, position_num) -> str:
+    async def decrease_position(
+        self,
+        sender: Account,
+        collateral,
+        index,
+        direction,
+        fee,
+        trade_level,
+        fee_amount,
+        take_profit,
+        decrease_amount,
+        collateral_price_threshold,
+        limited_index_price,
+        position_num,
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "decrease_position",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction)), TypeTag(StructTag.from_str(fee))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+                TypeTag(StructTag.from_str(fee)),
+            ],
             [
                 TransactionArgument(trade_level, Serializer.u8),
                 TransactionArgument(fee_amount, Serializer.u64),
@@ -187,91 +309,129 @@ class MarketClient(RestClient):
                 TransactionArgument(decrease_amount, Serializer.u64),
                 TransactionArgument(collateral_price_threshold, Serializer.u256),
                 TransactionArgument(limited_index_price, Serializer.u256),
-                TransactionArgument(position_num, Serializer.u64)
-            ]
+                TransactionArgument(position_num, Serializer.u64),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def execute_open_postion_order(self, sender: Account, collateral, index, direction, fee, owner, order_num) -> str:
+    async def execute_open_postion_order(
+        self, sender: Account, collateral, index, direction, fee, owner, order_num
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "execute_open_position_order",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction)), TypeTag(StructTag.from_str(fee))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+                TypeTag(StructTag.from_str(fee)),
+            ],
             [
                 TransactionArgument(owner, Serializer.struct),
                 TransactionArgument(order_num, Serializer.u64),
-                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
-
-            ]
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def execute_close_postion_order(self, sender: Account, collateral, index, direction, fee, owner, order_num, position_num) -> str:
+    async def execute_close_postion_order(
+        self,
+        sender: Account,
+        collateral,
+        index,
+        direction,
+        fee,
+        owner,
+        order_num,
+        position_num,
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "execute_decrease_position_order",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction)), TypeTag(StructTag.from_str(fee))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+                TypeTag(StructTag.from_str(fee)),
+            ],
             [
                 TransactionArgument(owner, Serializer.struct),
                 TransactionArgument(order_num, Serializer.u64),
-                TransactionArgument(position_num, Serializer.u64)
-            ]
+                TransactionArgument(position_num, Serializer.u64),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def pledge_in_position(self, sender: Account, collateral, index, direction, pledge_num, position_num) -> str:
+    async def pledge_in_position(
+        self, sender: Account, collateral, index, direction, pledge_num, position_num
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "pledge_in_position",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
             [
                 TransactionArgument(pledge_num, Serializer.u64),
-                TransactionArgument(position_num, Serializer.u64)
-            ]
+                TransactionArgument(position_num, Serializer.u64),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def redeem_from_position(self, sender: Account, collateral, index, direction, redeem_num, position_num) -> str:
+    async def redeem_from_position(
+        self, sender: Account, collateral, index, direction, redeem_num, position_num
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "redeem_from_position",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
             [
                 TransactionArgument(redeem_num, Serializer.u64),
-                TransactionArgument(position_num, Serializer.u64)
-            ]
+                TransactionArgument(position_num, Serializer.u64),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
-    async def liquidate_position(self, sender: Account, collateral, index, direction, owner, position_num) -> str:
+    async def liquidate_position(
+        self, sender: Account, collateral, index, direction, owner, position_num
+    ) -> str:
 
         payload = EntryFunction.natural(
-            contract_address+"::market",
+            contract_address + "::market",
             "liquidate_position",
-            [TypeTag(StructTag.from_str(collateral)), TypeTag(StructTag.from_str(index)), TypeTag(StructTag.from_str(contract_address+"::pool::"+direction))],
+            [
+                TypeTag(StructTag.from_str(collateral)),
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
             [
                 TransactionArgument(owner, Serializer.struct),
-                TransactionArgument(position_num, Serializer.u64)
-            ]
+                TransactionArgument(position_num, Serializer.u64),
+            ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
             sender, TransactionPayload(payload)
@@ -281,7 +441,9 @@ class MarketClient(RestClient):
 
 #
 async def main():
-    sender = Account.load_key("0x8dddb9887ed4d275536a05d47cbaf810dc8873f617080b3fdc6afd81ff73798d")
+    sender = Account.load_key(
+        "0x1b197f5236783789dd354d6968a1e7b3728350bfe62ebaf803afb3402acb0662"
+    )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
     rest_client = MarketClient(NODE_URL)
