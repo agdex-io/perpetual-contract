@@ -1037,12 +1037,6 @@ module perpetual::market {
         pyth::pyth::update_price_feeds_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, market_value,) = finalize_market_valuation();
-        let adjusted_market_value =
-        if (decimal::is_zero(&market_value)) {
-            decimal::from_u64(10_000_000)
-        } else {
-            market_value
-        };
 
         let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
 
@@ -1052,7 +1046,7 @@ module perpetual::market {
                 &market.rebase_model,
                 deposit_amount,
                 min_amount_out,
-                adjusted_market_value,
+                market_value,
                 vault_value,
                 total_vaults_value,
                 total_weight,
