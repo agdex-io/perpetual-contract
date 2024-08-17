@@ -26,16 +26,14 @@ module perpetual::market {
         symbols_locked: bool,
         rebate_model: Rate,
         rebase_model: RebaseFeeModel,
+        treasury_address: address,
+        treasury_ratio: Rate,
         referrals: Table<address, Referral>
     }
 
     struct WrappedPositionConfig<phantom Index, phantom Direction> has key {
         enabled: bool,
         inner: PositionConfig
-    }
-
-    struct PositionsRecord<phantom CoinType> has key {
-        positions: Table<u64, Position<CoinType>>
     }
 
     struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
@@ -187,6 +185,8 @@ module perpetual::market {
             symbols_locked: false,
             rebate_model: rebate_rate,
             rebase_model: rebase_rate,
+            treasury_address: @perpetual,
+            treasury_ratio: rate::from_raw(250_000_000_000_000_000),
             referrals: table::new<address, Referral>()
 
         };
