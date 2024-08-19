@@ -523,6 +523,8 @@ module perpetual::market {
                     reserve_amount,
                     lp_supply_amount,
                     timestamp,
+                    market.treasury_address,
+                    market.treasury_ratio
                 );
             coin::deposit(user_account, collateral);
             // should panic when the owner execute the order
@@ -665,6 +667,8 @@ module perpetual::market {
                     decrease_amount,
                     lp_supply_amount,
                     timestamp,
+                    market.treasury_address,
+                    market.treasury_ratio
                 );
             // should panic when the owner execute the order
             assert!(code == 0, code);
@@ -867,6 +871,8 @@ module perpetual::market {
                 long,
                 lp_supply_amount,
                 timestamp,
+                market.treasury_address,
+                market.treasury_ratio
             );
         if (code == 0) {
             let (position, rebate, _event) =
@@ -956,6 +962,8 @@ module perpetual::market {
                 long,
                 lp_supply_amount,
                 timestamp,
+                market.treasury_address,
+                market.treasury_ratio
             );
         if (code == 0) {
             let (to_trader, rebate, _event) =
@@ -1050,6 +1058,8 @@ module perpetual::market {
                 vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
 
         // mint to sender
@@ -1089,6 +1099,8 @@ module perpetual::market {
                 vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
         let withdraw_amount = coin::value(&withdraw);
         // burn lp
@@ -1171,6 +1183,8 @@ module perpetual::market {
                 source_vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
 
         // swap step 2
@@ -1182,6 +1196,8 @@ module perpetual::market {
                 destination_vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
         let dest_amount = coin::value(&receiving);
 
