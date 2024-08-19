@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x7fe5afe849218e50eabf21ecbd472803013607c17e97458d48d587f5cbc96b53"
+contract_address = "0xbfc86b9b41633d8ee54f8b94c79f3b9e248c2eee57f01636116cc58b3fe57c37"
 
 
 class MarketClient(RestClient):
@@ -442,7 +442,7 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0xb46649ddb6cd37566fab270ffa24b825c57b00aad774da553588d035610fe3af"
+        "0x729f5c1d40b58fe07ee8b25cc274213adf9bf5c84a289e342fe7b6b6ea756d98"
     )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 

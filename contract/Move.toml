@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = []
 
 [addresses]
-perpetual = "0x7fe5afe849218e50eabf21ecbd472803013607c17e97458d48d587f5cbc96b53"
+perpetual = "0xbfc86b9b41633d8ee54f8b94c79f3b9e248c2eee57f01636116cc58b3fe57c37"
 
 [dev-addresses]
 
