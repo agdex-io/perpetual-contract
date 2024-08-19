@@ -225,21 +225,22 @@ module perpetual::market {
     }
 
     public entry fun add_new_referral<L>(
-        admin: &signer, referrer: address,
+        referrer: &signer
     ) acquires Market {
-        admin::check_permission(signer::address_of(admin));
+
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
-            !table::contains(&market.referrals, referrer),
+            !table::contains(&market.referrals, signer::address_of(referrer)),
             ERR_ALREADY_HAS_REFERRAL,
         );
 
-        let referral = referral::new_referral(referrer, market.rebate_model);
-        table::add(&mut market.referrals, referrer, referral);
+        let referral = referral::new_referral( signer::address_of(referrer), market.rebate_model);
+        table::add(&mut market.referrals,  signer::address_of(referrer), referral);
 
-        emit(
-            ReferralAdded { referrer, rebate_rate: market.rebate_model, },
-        );
+        emit(ReferralAdded {
+            referrer: signer::address_of(referrer),
+            rebate_rate: market.rebate_model,
+        });
     }
 
     public entry fun replace_vault_feeder<Collateral>(
