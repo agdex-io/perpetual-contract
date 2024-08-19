@@ -30,6 +30,11 @@ module perpetual::model {
         }
     }
 
+    public(friend) fun update_rebase_fee_model(model: &mut RebaseFeeModel, base: Rate, multiplier: Decimal) {
+        model.base = base;
+        model.multiplier = multiplier;
+    }
+
     public(friend) fun create_funding_fee_model(multiplier: Decimal, max: Rate): FundingFeeModel {
         FundingFeeModel {
             multiplier,

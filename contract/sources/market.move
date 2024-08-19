@@ -388,6 +388,20 @@ module perpetual::market {
         );
     }
 
+    public entry fun update_rebase_model(
+        admin: &signer,
+        rebase_rate: u128,
+        multiplier: u256
+    ) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        model::update_rebase_fee_model(
+            &mut market.rebase_model,
+            rate::from_raw(rebase_rate),
+            decimal::from_raw(multiplier)
+        );
+    }
+
     public entry fun replace_position_config<Index, Direction>(
         admin: &signer,
         max_leverage: u64,
