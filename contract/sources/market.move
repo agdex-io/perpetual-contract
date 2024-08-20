@@ -26,16 +26,14 @@ module perpetual::market {
         symbols_locked: bool,
         rebate_model: Rate,
         rebase_model: RebaseFeeModel,
+        treasury_address: address,
+        treasury_ratio: Rate,
         referrals: Table<address, Referral>
     }
 
     struct WrappedPositionConfig<phantom Index, phantom Direction> has key {
         enabled: bool,
         inner: PositionConfig
-    }
-
-    struct PositionsRecord<phantom CoinType> has key {
-        positions: Table<u64, Position<CoinType>>
     }
 
     struct OrderId<phantom CoinType, phantom Index, phantom Direction, phantom Fee> has store, copy, drop {
@@ -187,6 +185,8 @@ module perpetual::market {
             symbols_locked: false,
             rebate_model: rebate_rate,
             rebase_model: rebase_rate,
+            treasury_address: @perpetual,
+            treasury_ratio: rate::from_raw(250_000_000_000_000_000),
             referrals: table::new<address, Referral>()
 
         };
@@ -225,21 +225,22 @@ module perpetual::market {
     }
 
     public entry fun add_new_referral<L>(
-        admin: &signer, referrer: address,
+        referrer: &signer
     ) acquires Market {
-        admin::check_permission(signer::address_of(admin));
+
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
-            !table::contains(&market.referrals, referrer),
+            !table::contains(&market.referrals, signer::address_of(referrer)),
             ERR_ALREADY_HAS_REFERRAL,
         );
 
-        let referral = referral::new_referral(referrer, market.rebate_model);
-        table::add(&mut market.referrals, referrer, referral);
+        let referral = referral::new_referral( signer::address_of(referrer), market.rebate_model);
+        table::add(&mut market.referrals,  signer::address_of(referrer), referral);
 
-        emit(
-            ReferralAdded { referrer, rebate_rate: market.rebate_model, },
-        );
+        emit(ReferralAdded {
+            referrer: signer::address_of(referrer),
+            rebate_rate: market.rebate_model,
+        });
     }
 
     public entry fun replace_vault_feeder<Collateral>(
@@ -388,6 +389,20 @@ module perpetual::market {
         );
     }
 
+    public entry fun update_rebase_model(
+        admin: &signer,
+        rebase_rate: u128,
+        multiplier: u256
+    ) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        model::update_rebase_fee_model(
+            &mut market.rebase_model,
+            rate::from_raw(rebase_rate),
+            decimal::from_raw(multiplier)
+        );
+    }
+
     public entry fun replace_position_config<Index, Direction>(
         admin: &signer,
         max_leverage: u64,
@@ -523,6 +538,8 @@ module perpetual::market {
                     reserve_amount,
                     lp_supply_amount,
                     timestamp,
+                    market.treasury_address,
+                    market.treasury_ratio
                 );
             coin::deposit(user_account, collateral);
             // should panic when the owner execute the order
@@ -665,6 +682,8 @@ module perpetual::market {
                     decrease_amount,
                     lp_supply_amount,
                     timestamp,
+                    market.treasury_address,
+                    market.treasury_ratio
                 );
             // should panic when the owner execute the order
             assert!(code == 0, code);
@@ -867,6 +886,8 @@ module perpetual::market {
                 long,
                 lp_supply_amount,
                 timestamp,
+                market.treasury_address,
+                market.treasury_ratio
             );
         if (code == 0) {
             let (position, rebate, _event) =
@@ -956,6 +977,8 @@ module perpetual::market {
                 long,
                 lp_supply_amount,
                 timestamp,
+                market.treasury_address,
+                market.treasury_ratio
             );
         if (code == 0) {
             let (to_trader, rebate, _event) =
@@ -1050,6 +1073,8 @@ module perpetual::market {
                 vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
 
         // mint to sender
@@ -1089,6 +1114,8 @@ module perpetual::market {
                 vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
         let withdraw_amount = coin::value(&withdraw);
         // burn lp
@@ -1171,6 +1198,8 @@ module perpetual::market {
                 source_vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
 
         // swap step 2
@@ -1182,6 +1211,8 @@ module perpetual::market {
                 destination_vault_value,
                 total_vaults_value,
                 total_weight,
+                market.treasury_address,
+                market.treasury_ratio
             );
         let dest_amount = coin::value(&receiving);
 

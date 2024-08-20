@@ -120,6 +120,8 @@ module perpetual::orders {
         long: bool,
         lp_supply_amount: Decimal,
         timestamp: u64,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>, Coin<Fee>) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
         let index_price = agg_price::parse_pyth_feeder(
@@ -154,6 +156,8 @@ module perpetual::orders {
             order.reserve_amount,
             lp_supply_amount,
             timestamp,
+            treasury_address,
+            treasury_ratio
         );
 
         (code, collateral, result, failure, fee)
@@ -165,7 +169,9 @@ module perpetual::orders {
         rebate_rate: Rate,
         long: bool,
         lp_supply_amount: Decimal,
-        timestamp: u64
+        timestamp: u64,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>, Coin<Fee>) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
         let index_price = agg_price::parse_pyth_feeder(
@@ -204,6 +210,8 @@ module perpetual::orders {
                 order.decrease_amount,
                 lp_supply_amount,
                 timestamp,
+                treasury_address,
+                treasury_ratio
         );
 
         (code, result, failure, fee)
