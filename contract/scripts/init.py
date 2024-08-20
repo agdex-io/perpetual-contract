@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0xbfc86b9b41633d8ee54f8b94c79f3b9e248c2eee57f01636116cc58b3fe57c37"
+contract_address = "0x97f3eaeeaadaee34d0274ff0ef9cf572b04991db7598c57bd372bb2f555bd787"
 
 
 class MarketClient(RestClient):
@@ -442,12 +442,12 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0x729f5c1d40b58fe07ee8b25cc274213adf9bf5c84a289e342fe7b6b6ea756d98"
+        "0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d"
     )
-    NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
+    NODE_URL = "https://aptos.testnet.suzuka.movementlabs.xyz/v1/"
 
     rest_client = MarketClient(NODE_URL)
-    # txn_hash = await rest_client.add_new_vault(sender, "0x1::aptos_coin::AptosCoin", 100000000000000000, 2000, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 800000000000000)
+    txn_hash = await rest_client.add_new_vault(sender, "0x1::aptos_coin::AptosCoin", 100000000000000000, 2000, 18446744073709551615, list(bytes.fromhex("44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")), 800000000000000)
     # txn_hash = await rest_client.add_new_vault(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC", 100000000000000000, 2000, 18446744073709551615, list(bytes.fromhex("41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722")), 800000000000000)
     # txn_hash = await rest_client.add_new_vault(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", 100000000000000000, 2000, 18446744073709551615, list(bytes.fromhex("1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588")), 800000000000000)
     # txn_hash = await rest_client.add_new_vault(sender, "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::btc::BTC", 100000000000000000, 2000, 18446744073709551615, list(bytes.fromhex("f9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b")), 800000000000000)

@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
     TransactionPayload,
 )
 
-contract_address = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
+contract_address = "0x9357e76fe965c9956a76181ee49f66d51b7f9c3800182a944ed96be86301e49f"
 
 
 class MarketClient(RestClient):
@@ -44,6 +44,7 @@ class MarketClient(RestClient):
         vas_hex = res.json()["binary"]["data"][0]
         vas_bytes_5 = list(bytes.fromhex(vas_hex))
 
+
         payload = EntryFunction.natural(
             contract_address+"::pyth",
             "update_price_feeds_with_funder",
@@ -59,8 +60,8 @@ class MarketClient(RestClient):
 
 #
 async def main():
-    sender = Account.load_key("0xbd7f26f79f52b7248b89a8eac0abefc4b34bd615dc0a04ee7829b5dbad588a71")
-    NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
+    sender = Account.load_key("0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d")
+    NODE_URL = "https://aptos.testnet.suzuka.movementlabs.xyz/v1/"
 
     rest_client = MarketClient(NODE_URL)
     txn_hash = await rest_client.update_feed(sender, [])
