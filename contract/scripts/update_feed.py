@@ -60,8 +60,8 @@ class MarketClient(RestClient):
 
 #
 async def main():
-    sender = Account.load_key("0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d")
-    NODE_URL = "https://aptos.testnet.suzuka.movementlabs.xyz/v1/"
+    sender = Account.load_key("0xc5ceec58b83163f9957e3b62b6cc5a5cee3ad6273dcfbe78f953eebcfe7b84b5")
+    NODE_URL = "https://aptos.testnet.suzuka.movementlabs.xyz/v1"
 
     rest_client = MarketClient(NODE_URL)
     txn_hash = await rest_client.update_feed(sender, [])
