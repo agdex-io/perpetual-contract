@@ -16,6 +16,10 @@ module perpetual::pool {
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::timestamp;
     use perpetual::lp;
+    use mock::usdc::USDC;
+    use mock::usdt::USDT;
+    use mock::btc::BTC;
+    use mock::ETH::ETH;
 
     friend perpetual::market;
     friend perpetual::orders;
@@ -268,6 +272,8 @@ module perpetual::pool {
         vault_value: Decimal,
         total_vaults_value: Decimal,
         total_weight: Decimal,
+        treasury_address: address,
+        treasury_ratio: Rate
     ):(u64, Decimal) acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let timestamp = timestamp::now_seconds();
@@ -294,6 +300,14 @@ module perpetual::pool {
         let fee_value = decimal::mul_with_rate(deposit_value, fee_rate);
         deposit_value = decimal::sub(deposit_value, fee_value);
         let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
+
+        // compute and settle treasrury reserve amount
+        let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
+        let treasury_reserve_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
+        );
+        let treasury = coin::extract(&mut deposit_coin, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
 
         coin::merge(&mut vault.liquidity, deposit_coin);
 
@@ -326,6 +340,8 @@ module perpetual::pool {
         vault_value: Decimal,
         total_vaults_value: Decimal,
         total_weight: Decimal,
+        treasury_address: address,
+        treasury_ratio: Rate
     ):(Coin<Collateral>, Decimal) acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let timestamp = timestamp::now_seconds();
@@ -355,7 +371,10 @@ module perpetual::pool {
             total_weight,
         );
         let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
+        // compute and settle treasrury reserve amount
+        let treasury_reserve_value = decimal::mul_with_rate(withdraw_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
+        withdraw_value = decimal::add(withdraw_value, treasury_reserve_value);
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &vault.price_config,
@@ -375,6 +394,13 @@ module perpetual::pool {
             coin::value(&withdraw) >= min_amount_out,
             ERR_AMOUNT_OUT_TOO_LESS,
         );
+
+
+        let treasury_reserve_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
+        );
+        let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
 
         (withdraw, fee_value)
     }
@@ -408,6 +434,8 @@ module perpetual::pool {
         source_vault_value: Decimal,
         total_vaults_value: Decimal,
         total_weight: Decimal,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (Decimal, Decimal) acquires Vault {
         let source_vault = borrow_global_mut<Vault<Source>>(@perpetual);
         assert!(source_vault.enabled, ERR_VAULT_DISABLED);
@@ -417,6 +445,7 @@ module perpetual::pool {
         assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
 
         coin::merge(&mut source_vault.liquidity, source);
+
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &source_vault.price_config,
@@ -435,6 +464,14 @@ module perpetual::pool {
         );
         let source_fee_value = decimal::mul_with_rate(swap_value, source_fee_rate);
 
+        // calculate and settle treasury reserve
+        let treasury_reserve_value = decimal::mul_with_rate(source_fee_value, treasury_ratio);
+        let treasury_reserve_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
+        );
+        let treasury = coin::extract(&mut source_vault.liquidity, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
+
         (
             decimal::sub(swap_value, source_fee_value),
             source_fee_value,
@@ -448,6 +485,8 @@ module perpetual::pool {
         dest_vault_value: Decimal,
         total_vaults_value: Decimal,
         total_weight: Decimal,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (Coin<Destination>, Decimal) acquires Vault {
         let dest_vault = borrow_global_mut<Vault<Destination>>(@perpetual);
         assert!(dest_vault.enabled, ERR_VAULT_DISABLED);
@@ -475,6 +514,14 @@ module perpetual::pool {
         let dest_fee_value = decimal::mul_with_rate(swap_value, dest_fee_rate);
         swap_value = decimal::sub(swap_value, dest_fee_value);
 
+        // calculate and settle treasury reserve
+        let treasury_reserve_value = decimal::mul_with_rate(dest_fee_value, treasury_ratio);
+        let treasury_reserve_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
+        );
+        let treasury = coin::extract(&mut dest_vault.liquidity, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
+
         let dest_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, swap_value)
         );
@@ -500,6 +547,8 @@ module perpetual::pool {
         reserve_amount: u64,
         lp_supply_amount: Decimal,
         timestamp: u64,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let collateral_price = agg_price::parse_pyth_feeder(
@@ -555,6 +604,11 @@ module perpetual::pool {
 
         // compute rebate
         let rebate_amount = decimal::floor_u64(decimal::mul_with_rate(open_fee_amount_dec, rebate_rate));
+
+        // compute and settle treasrury reserve amount
+        let treasury_reserve_amount = decimal::floor_u64(decimal::mul_with_rate(open_fee_amount_dec, treasury_ratio));
+        let treasury = coin::extract(&mut open_fee, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
 
         // update vault
         vault.reserved_amount = vault.reserved_amount + reserve_amount;
@@ -623,7 +677,9 @@ module perpetual::pool {
         long: bool,
         decrease_amount: u64,
         lp_supply_amount: Decimal,
-        timestamp: u64
+        timestamp: u64,
+        treasury_address: address,
+        treasury_ratio: Rate
     ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let collateral_price = agg_price::parse_pyth_feeder(
@@ -694,6 +750,13 @@ module perpetual::pool {
         let rebate_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, rebate_value)
         );
+        // compute and settle treasrury reserve amount
+        let treasury_reserve_value = decimal::mul_with_rate(decrease_fee_value, treasury_ratio);
+        let treasury_reserve_amount = decimal::floor_u64(
+            agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
+        );
+        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
+        coin::deposit(treasury_address, treasury);
 
         // update vault
         vault.reserved_amount = vault.reserved_amount - decreased_reserved_amount;
@@ -717,9 +780,12 @@ module perpetual::pool {
                 !has_profit,
                 agg_price::coins_to_value(&collateral_price, settled_amount),
             ),
-            // exclude: decrease fee - rebate + reserving fee
+            // exclude: decrease fee - rebate - treasury_reserve + reserving fee
             decimal::add(
-                decimal::sub(decrease_fee_value, rebate_value),
+                decimal::sub(
+                    decimal::sub(decrease_fee_value, rebate_value),
+                    reserving_fee_value
+                ),
                 reserving_fee_value,
             ),
         );
@@ -1107,6 +1173,10 @@ module perpetual::pool {
         let total_weight = decimal::zero();
         // loop through all of vault
         let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<USDC>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<USDT>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<BTC>(timestamp, total_value, total_weight);
+        let (total_value, total_weight) = valuate_vault<ETH>(timestamp, total_value, total_weight);
 
         (total_value, total_weight)
 
@@ -1118,7 +1188,12 @@ module perpetual::pool {
         let total_value = sdecimal::zero();
 
         // loop through all of Symbol
-        let total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AptosCoin, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AptosCoin, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BTC, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BTC, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<ETH, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<ETH, SHORT>(timestamp, lp_supply_amount, total_value);
 
         total_value
 

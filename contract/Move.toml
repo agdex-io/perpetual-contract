@@ -4,12 +4,15 @@ version = "0.0.1"
 authors = []
 
 [addresses]
-perpetual = "0x9e54d3231b270990fde73545f034dfa771696759e4f40ef8d5fc214cf88b4c6f"
+perpetual = "0xbfc86b9b41633d8ee54f8b94c79f3b9e248c2eee57f01636116cc58b3fe57c37"
 
 [dev-addresses]
 
 [dependencies.Pyth]
 local = "../vendor"
+
+[dependencies.mock]
+local = "../Mock"
 
 #[dependencies.AptosFramework]
 #git = "https://github.com/aptos-labs/aptos-core.git"
