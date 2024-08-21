@@ -12,6 +12,9 @@ module mock::btc {
         mint_cap: MintCapability<BTC>,
     }
 
+    const MAX_AMOUNT: u64 = 100000;
+    const EINVALID_AMOUNT: u64 = 1;
+
     public entry fun init(sender: &signer) {
         assert!(signer::address_of(sender) == @mock, 1);
         let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<BTC>(
@@ -34,6 +37,7 @@ module mock::btc {
             coin::register<BTC>(sender);
         };
 
+        assert!(amount <= MAX_AMOUNT, EINVALID_AMOUNT);
         let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
         let fake_coin = coin::mint<BTC>(amount, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);

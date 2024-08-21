@@ -12,6 +12,9 @@ module mock::ETH {
         mint_cap: MintCapability<ETH>,
     }
 
+    const MAX_AMOUNT: u64 = 1000000;
+    const EINVALID_AMOUNT: u64 = 1;
+
     public entry fun init(sender: &signer) {
         assert!(signer::address_of(sender) == @mock, 1);
         let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<ETH>(
@@ -33,8 +36,9 @@ module mock::ETH {
         if (!coin::is_account_registered<ETH>(signer::address_of((sender)))) {
             coin::register<ETH>(sender);
         };
-
+        assert!(amount <= MAX_AMOUNT, EINVALID_AMOUNT);
         let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
+
         let fake_coin = coin::mint<ETH>(amount, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);
     }

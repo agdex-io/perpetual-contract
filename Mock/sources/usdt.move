@@ -12,6 +12,9 @@ module mock::usdt {
         mint_cap: MintCapability<USDT>,
     }
 
+    const MAX_AMOUNT: u64 = 10000000;
+    const EINVALID_AMOUNT: u64 = 1;
+
     fun init_module(sender: &signer) {
         let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<USDT>(
             sender,
@@ -33,6 +36,7 @@ module mock::usdt {
             coin::register<USDT>(sender);
         };
 
+        assert!(amount <= MAX_AMOUNT, EINVALID_AMOUNT);
         let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
         let fake_coin = coin::mint<USDT>(amount, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);
