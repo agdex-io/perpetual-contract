@@ -246,7 +246,7 @@ module perpetual::market {
     }
 
 
-    public fun register_referrer_code(referrer: &signer, code: string::String) {
+    public fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
 
         let market = borrow_global_mut<Market>(@perpetual);
 
@@ -633,6 +633,8 @@ module perpetual::market {
                 coin::deposit(referrer, rebate_amount_coin1);
                 coin::deposit(user_account, rebate_amount_coin2);
 
+                coin::deposit(user_account, rebate);
+
             } else {
                 coin::deposit(user_account, rebate);
             };
@@ -773,6 +775,8 @@ module perpetual::market {
 
                 coin::deposit(referrer, rebate_amount_coin1);
                 coin::deposit(user_account, rebate_amount_coin2);
+
+                coin::deposit(user_account, rebate);
                 
             } else {
                 coin::deposit(user_account, rebate);
@@ -999,7 +1003,8 @@ module perpetual::market {
 
                 coin::deposit(referrer, rebate_amount_coin1);
                 coin::deposit(executor_account, rebate_amount_coin2);
-
+                
+                coin::deposit(executor_account, rebate);
 
             } else {
                 coin::deposit(referrer, rebate);
@@ -1089,7 +1094,8 @@ module perpetual::market {
 
                 coin::deposit(referrer, rebate_amount_coin1);
                 coin::deposit(owner, rebate_amount_coin2);
-
+                
+                coin::deposit(owner, rebate);
 
             } else {
                 coin::deposit(owner, rebate);
