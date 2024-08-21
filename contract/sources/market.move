@@ -16,6 +16,7 @@ module perpetual::market {
     use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
+    // use aptos_framework::coin::Coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::emit;
@@ -245,7 +246,7 @@ module perpetual::market {
     }
 
 
-    public fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
+    public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
 
         let market = borrow_global_mut<Market>(@perpetual);
 
@@ -275,7 +276,7 @@ module perpetual::market {
         });
     }
     
-    public entry fun add_new_referral<L>(
+    public entry fun add_new_referral(
         user: &signer,
         code: string::String
     ) acquires Market {
@@ -1418,5 +1419,27 @@ module perpetual::market {
         } else {
             (rate::zero(), @0x0)
         }
+    }
+
+     #[view]
+    public fun get_referrer(referee: address):address acquires Market {
+        let market = borrow_global<Market>(@perpetual);
+        let referral = table::borrow(&market.referrals, referee);
+
+        referral::get_referrer(referral)
+    }
+
+    #[view]
+    public fun get_referrer_code(referrer: address):string::String acquires Market {
+        let market = borrow_global<Market>(@perpetual);
+        let code = table::borrow(&market.referrers, referrer);
+        *code
+    }
+
+    #[view]
+    public fun check_code(code: string::String):address acquires Market{
+        let market = borrow_global<Market>(@perpetual);
+        let referrer = table::borrow(&market.referrer_codes, code);
+        *referrer
     }
 }
