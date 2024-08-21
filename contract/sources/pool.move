@@ -20,6 +20,10 @@ module perpetual::pool {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
+    use mock::PEPE::PEPE;
+    use mock::DOGE::DOGE;
+    use mock::AVAX::AVAX;
+    use mock::SOL::SOL;
 
     friend perpetual::market;
     friend perpetual::orders;
@@ -1194,6 +1198,14 @@ module perpetual::pool {
         total_value = valuate_symbol<BTC, SHORT>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<ETH, LONG>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<ETH, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<DOGE, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<DOGE, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<SOL, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<SOL, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<PEPE, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<PEPE, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AVAX, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AVAX, SHORT>(timestamp, lp_supply_amount, total_value);
 
         total_value
 
