@@ -16,7 +16,6 @@ module perpetual::market {
     use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
-    use aptos_framework::coin::Coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::emit;
