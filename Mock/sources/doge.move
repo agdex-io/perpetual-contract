@@ -12,7 +12,7 @@ module mock::DOGE {
         mint_cap: MintCapability<DOGE>,
     }
 
-    fun init(sender: &signer) {
+    public entry fun init(sender: &signer) {
         assert!(signer::address_of(sender) == @mock, 1);
         let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<DOGE>(
             sender,

@@ -24,6 +24,7 @@ module perpetual::pool {
     use mock::DOGE::DOGE;
     use mock::AVAX::AVAX;
     use mock::SOL::SOL;
+    use mock::BNB::BNB;
 
     friend perpetual::market;
     friend perpetual::orders;
@@ -1206,6 +1207,8 @@ module perpetual::pool {
         total_value = valuate_symbol<PEPE, SHORT>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<AVAX, LONG>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<AVAX, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BNB, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BNB, SHORT>(timestamp, lp_supply_amount, total_value);
 
         total_value
 
