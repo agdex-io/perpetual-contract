@@ -2,7 +2,9 @@ module mock::ETH {
 
     use std::signer;
     use std::string;
+    use aptos_std::table::{Self, Table};
     use aptos_framework::coin::{Self, BurnCapability, FreezeCapability, MintCapability};
+    use aptos_framework::timestamp;
 
     struct ETH {}
 
@@ -12,8 +14,13 @@ module mock::ETH {
         mint_cap: MintCapability<ETH>,
     }
 
-    const MAX_AMOUNT: u64 = 1000000;
-    const EINVALID_AMOUNT: u64 = 1;
+    struct MintRecord has key {
+        record: Table<address, u64>
+    }
+
+    const MINT_AMOUNT: u64 = 1000000;
+    const MINT_INTERVAL: u64 = 24*60*60;
+    const EALREADY_MINTED: u64 = 1;
 
     public entry fun init(sender: &signer) {
         assert!(signer::address_of(sender) == @mock, 1);
@@ -29,17 +36,27 @@ module mock::ETH {
             burn_cap,
             freeze_cap,
             mint_cap
+        });
+        move_to(sender, MintRecord{
+            record: table::new<address, u64>()
         })
     }
 
-    public entry fun mint(sender: &signer, amount: u64) acquires FakeMoneyCapabilities {
-        if (!coin::is_account_registered<ETH>(signer::address_of((sender)))) {
+    public entry fun mint(sender: &signer) acquires FakeMoneyCapabilities, MintRecord {
+        let sender_addr = signer::address_of(sender);
+        let now = timestamp::now_seconds();
+        if (!coin::is_account_registered<ETH>(sender_addr)) {
             coin::register<ETH>(sender);
         };
-        assert!(amount <= MAX_AMOUNT, EINVALID_AMOUNT);
+        let rec = borrow_global_mut<MintRecord>(@mock);
+        if (!table::contains(&rec.record, sender_addr)) {
+            table::add(&mut rec.record, sender_addr, now);
+        } else {
+            assert!((now - *table::borrow(&rec.record, sender_addr)) > MINT_INTERVAL, EALREADY_MINTED);
+        };
         let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
-
-        let fake_coin = coin::mint<ETH>(amount, &cap.mint_cap);
+        let fake_coin = coin::mint<ETH>(MINT_AMOUNT, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);
+        *table::borrow_mut(&mut rec.record, sender_addr) = now;
     }
 }
