@@ -22,6 +22,11 @@ module perpetual::market {
     use aptos_framework::event::emit;
     use perpetual::agg_price::AggPrice;
 
+    use mock::usdc::USDC;
+    use mock::usdt::USDT;
+    use mock::btc::BTC;
+    use mock::ETH::ETH;
+
     struct Market has key {
         vaults_locked: bool,
         symbols_locked: bool,
@@ -247,8 +252,17 @@ module perpetual::market {
 
 
     public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
+        
+
+        aptos_framework::managed_coin::register<AptosCoin>(referrer);
+        aptos_framework::managed_coin::register<USDC>(referrer);
+        aptos_framework::managed_coin::register<USDT>(referrer);
+        aptos_framework::managed_coin::register<BTC>(referrer);
+        aptos_framework::managed_coin::register<ETH>(referrer);
+
 
         let market = borrow_global_mut<Market>(@perpetual);
+
 
         assert!(
             !table::contains(&market.referrer_codes, code),
