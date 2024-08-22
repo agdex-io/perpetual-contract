@@ -990,7 +990,7 @@ module perpetual::market {
             );
             position_record.creation_num = position_record.creation_num + 1;
 
-            if (referrer == @0x0) {
+            if (referrer != @0x0) {
                 let rebate_amount = coin::value(&rebate);
                 let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
@@ -1002,12 +1002,11 @@ module perpetual::market {
                 let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
                 coin::deposit(referrer, rebate_amount_coin1);
-                coin::deposit(executor_account, rebate_amount_coin2);
-                
-                coin::deposit(executor_account, rebate);
+                coin::deposit(owner, rebate_amount_coin2);
+                coin::deposit(owner, rebate);
 
             } else {
-                coin::deposit(referrer, rebate);
+                coin::deposit(owner, rebate);
             };
 
             emit(
