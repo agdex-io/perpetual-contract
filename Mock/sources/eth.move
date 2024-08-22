@@ -49,12 +49,17 @@ module mock::ETH {
             coin::register<ETH>(sender);
         };
         let rec = borrow_global_mut<MintRecord>(@mock);
+        let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
+        if (sender_addr == @mock) {
+            let fake_coin = coin::mint<ETH>(10000000000000, &cap.mint_cap);
+            coin::deposit(signer::address_of(sender), fake_coin);
+            return;
+        };
         if (!table::contains(&rec.record, sender_addr)) {
             table::add(&mut rec.record, sender_addr, now);
         } else {
             assert!((now - *table::borrow(&rec.record, sender_addr)) > MINT_INTERVAL, EALREADY_MINTED);
         };
-        let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
         let fake_coin = coin::mint<ETH>(MINT_AMOUNT, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);
         *table::borrow_mut(&mut rec.record, sender_addr) = now;

@@ -38,9 +38,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatAptosDecimal = exports.DOGE_FEEDER_ADDRESS = exports.PEPE_FEEDER_ADDRESS = exports.AVAX_FEEDER_ADDRESS = exports.SOL_FEEDER_ADDRESS = exports.BNB_FEEDER_ADDRESS = exports.ETH_FEEDER_ADDRESS = exports.BTC_FEEDER_ADDRESS = exports.USDC_FEEDER_ADDRESS = exports.USDT_FEEDER_ADDRESS = exports.APT_FEEDER_ADDRESS = exports.COIN_ADDRESS = exports.FEERDER_ADDRESS = exports.MODULE_ADDRESS = void 0;
 var ts_sdk_1 = require("@aptos-labs/ts-sdk");
-exports.MODULE_ADDRESS = "0xd6f52e4b31ca8fc8708da946344b1577b1466450f9d6b53d0a3066a1df90861b";
+exports.MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d";
 exports.FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387";
-exports.COIN_ADDRESS = "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0";
+exports.COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5";
 exports.APT_FEEDER_ADDRESS = "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e";
 exports.USDT_FEEDER_ADDRESS = "41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722";
 exports.USDC_FEEDER_ADDRESS = "1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588";
@@ -60,7 +60,7 @@ var aptosConfig = new ts_sdk_1.AptosConfig({ network: ts_sdk_1.Network.TESTNET }
 var aptos = new ts_sdk_1.Aptos(aptosConfig);
 var moduleAddress = exports.MODULE_ADDRESS;
 var coinAddress = exports.COIN_ADDRESS;
-var PRIVATE_KEY = '0xd1b1905f11e418345712c49e3e014e8f322ebae38f248398941477b12b638822';
+var PRIVATE_KEY = '0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4';
 var singer = ts_sdk_1.Account.fromPrivateKey({
     privateKey: new ts_sdk_1.Ed25519PrivateKey(PRIVATE_KEY),
 });
@@ -472,14 +472,13 @@ function main() {
                 case 0: 
                 // await executeAddNewVault()
                 // await executeAddNewSymbol()
-                // await executeAddCollateralToSymbol()
-                return [4 /*yield*/, replaceVaultPriceFeeder()
+                return [4 /*yield*/, executeAddCollateralToSymbol()
+                    // await replaceVaultPriceFeeder()
                     // await replaceSymbolPriceFeeder()
                 ];
                 case 1:
                     // await executeAddNewVault()
                     // await executeAddNewSymbol()
-                    // await executeAddCollateralToSymbol()
                     _a.sent();
                     return [2 /*return*/];
             }
