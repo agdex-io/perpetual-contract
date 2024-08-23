@@ -1,6 +1,7 @@
 {
   "scripts": {
     "run-init": "tsc init.ts --outDir dist && node dist/init.js",
+    "update-rebate-rate": "tsc init.ts --outDir dist && node dist/update_rebate_rate.js",
     "price": "tsc lp_price.ts --outDir dist && node dist/lp_price.js"
   },
   "dependencies": {
