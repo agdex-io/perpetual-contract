@@ -200,7 +200,7 @@ module perpetual::market {
         let rebase_rate = model::create_rebase_fee_model();
 
         //TODO: assign rebate rate here
-        let rebate_rate = rate::zero();
+        let rebate_rate = rate::from_percent(20);
         // move market resource to account
         let market = Market {
             vaults_locked: false,
@@ -251,6 +251,12 @@ module perpetual::market {
     }
 
 
+    public entry fun update_rebate_rate(admin: &signer, rebate_rate: u8) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        admin::check_permission(signer::address_of(admin));
+        
+        market.rebate_model = rate::from_percent(rebate_rate);
+    }   
     public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
         
 
@@ -752,8 +758,7 @@ module perpetual::market {
                 position_id,
             );
 
-            let (rebate_rate, referrer) =
-                get_referral_data(&market.referrals, user_account);
+            let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
             let (code, result, _) =
                 pool::decrease_position<Collateral, Index, Direction>(
                     position,
