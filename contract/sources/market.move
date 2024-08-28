@@ -783,7 +783,7 @@ module perpetual::market {
             if (referrer != @0x0) {
 
                 let rebate_amount = coin::value(&rebate);
-                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
@@ -796,7 +796,7 @@ module perpetual::market {
                 coin::deposit(user_account, rebate_amount_coin2);
 
                 coin::deposit(user_account, rebate);
-                
+
             } else {
                 coin::deposit(user_account, rebate);
             };

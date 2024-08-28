@@ -789,7 +789,7 @@ module perpetual::pool {
             decimal::add(
                 decimal::sub(
                     decimal::sub(decrease_fee_value, rebate_value),
-                    reserving_fee_value
+                    treasury_reserve_value
                 ),
                 reserving_fee_value,
             ),
