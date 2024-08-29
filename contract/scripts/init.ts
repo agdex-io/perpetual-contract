@@ -8,9 +8,10 @@ import {
 } from '@aptos-labs/ts-sdk'
 
 
-export const MODULE_ADDRESS = "0xd6f52e4b31ca8fc8708da946344b1577b1466450f9d6b53d0a3066a1df90861b"
+
+export const MODULE_ADDRESS = "0x97f3eaeeaadaee34d0274ff0ef9cf572b04991db7598c57bd372bb2f555bd787"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
-export const COIN_ADDRESS = "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0"
+export const COIN_ADDRESS = "0xfa78899981b78f231628501583779f99565b49cbec9bbf84f9a04465ba17ca55"
 
 export const APT_FEEDER_ADDRESS =
     "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e"
@@ -37,14 +38,14 @@ export const formatAptosDecimal = (value: number, decimals: number = 8) => {
     return Number((value * Math.pow(10, decimals)).toFixed(0));
 }
 
-const aptosConfig = new AptosConfig({ network: Network.TESTNET })
+const aptosConfig = new AptosConfig({ fullnode: "https://aptos.testnet.suzuka.movementlabs.xyz/v1" })
 const aptos = new Aptos(aptosConfig)
 const moduleAddress =
     MODULE_ADDRESS
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0xd1b1905f11e418345712c49e3e014e8f322ebae38f248398941477b12b638822'
+const PRIVATE_KEY = '0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),

@@ -38,9 +38,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatAptosDecimal = exports.DOGE_FEEDER_ADDRESS = exports.PEPE_FEEDER_ADDRESS = exports.AVAX_FEEDER_ADDRESS = exports.SOL_FEEDER_ADDRESS = exports.BNB_FEEDER_ADDRESS = exports.ETH_FEEDER_ADDRESS = exports.BTC_FEEDER_ADDRESS = exports.USDC_FEEDER_ADDRESS = exports.USDT_FEEDER_ADDRESS = exports.APT_FEEDER_ADDRESS = exports.COIN_ADDRESS = exports.FEERDER_ADDRESS = exports.MODULE_ADDRESS = void 0;
 var ts_sdk_1 = require("@aptos-labs/ts-sdk");
-exports.MODULE_ADDRESS = "0xd6f52e4b31ca8fc8708da946344b1577b1466450f9d6b53d0a3066a1df90861b";
+exports.MODULE_ADDRESS = "0x97f3eaeeaadaee34d0274ff0ef9cf572b04991db7598c57bd372bb2f555bd787";
 exports.FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387";
-exports.COIN_ADDRESS = "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0";
+exports.COIN_ADDRESS = "0xfa78899981b78f231628501583779f99565b49cbec9bbf84f9a04465ba17ca55";
 exports.APT_FEEDER_ADDRESS = "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e";
 exports.USDT_FEEDER_ADDRESS = "41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722";
 exports.USDC_FEEDER_ADDRESS = "1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588";
@@ -56,11 +56,11 @@ var formatAptosDecimal = function (value, decimals) {
     return Number((value * Math.pow(10, decimals)).toFixed(0));
 };
 exports.formatAptosDecimal = formatAptosDecimal;
-var aptosConfig = new ts_sdk_1.AptosConfig({ network: ts_sdk_1.Network.TESTNET });
+var aptosConfig = new ts_sdk_1.AptosConfig({ fullnode: "https://aptos.testnet.suzuka.movementlabs.xyz/v1" });
 var aptos = new ts_sdk_1.Aptos(aptosConfig);
 var moduleAddress = exports.MODULE_ADDRESS;
 var coinAddress = exports.COIN_ADDRESS;
-var PRIVATE_KEY = '0xd1b1905f11e418345712c49e3e014e8f322ebae38f248398941477b12b638822';
+var PRIVATE_KEY = '0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d';
 var singer = ts_sdk_1.Account.fromPrivateKey({
     privateKey: new ts_sdk_1.Ed25519PrivateKey(PRIVATE_KEY),
 });
