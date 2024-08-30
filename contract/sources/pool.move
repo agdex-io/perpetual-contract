@@ -705,10 +705,8 @@ module perpetual::pool {
 
         // refresh vault
         refresh_vault(vault, timestamp);
-
         // refresh symbol
         let delta_size = symbol_delta_size(symbol, &index_price, long);
-
         refresh_symbol(
             symbol,
             delta_size,
@@ -793,7 +791,7 @@ module perpetual::pool {
             decimal::add(
                 decimal::sub(
                     decimal::sub(decrease_fee_value, rebate_value),
-                    reserving_fee_value
+                    treasury_reserve_value
                 ),
                 reserving_fee_value,
             ),
@@ -880,10 +878,8 @@ module perpetual::pool {
 
         // refresh vault
         refresh_vault(vault, timestamp);
-        
         // refresh symbol
         let delta_size = symbol_delta_size(symbol, &index_price, long);
-        
         refresh_symbol(
             symbol,
             delta_size,
@@ -1029,18 +1025,15 @@ module perpetual::pool {
         lp_supply_amount: Decimal,
         timestamp: u64,
     ) {
-
         let delta_rate = symbol_delta_funding_rate(
             symbol,
             delta_size,
             lp_supply_amount,
             timestamp,
         );
-
         symbol.acc_funding_rate = symbol_acc_funding_rate(symbol, delta_rate);
-        
-        symbol.unrealised_funding_fee_value = symbol_unrealised_funding_fee_value(symbol, delta_rate);
-        
+        symbol.unrealised_funding_fee_value =
+            symbol_unrealised_funding_fee_value(symbol, delta_rate);
         symbol.last_update = timestamp;
     }
 
