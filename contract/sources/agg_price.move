@@ -8,7 +8,7 @@ module perpetual::agg_price {
 
     use perpetual::decimal::{Self, Decimal};
     use pyth::price_identifier::PriceIdentifier;
-
+    
     friend perpetual::market;
 
     struct AggPrice has drop, store {

@@ -407,7 +407,9 @@ module perpetual::market {
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         let price_config =
             agg_price::new_agg_price_config<Index>(
-                max_interval, max_price_confidence, identifier
+                max_interval, 
+                max_price_confidence, 
+                identifier
             );
         pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
         // TODO: emit event
@@ -685,16 +687,19 @@ module perpetual::market {
         let long = parse_direction<Direction>();
 
         let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
+        
         let index_price =
             agg_price::parse_pyth_feeder(
                 &pool::symbol_price_config<Index, Direction>(),
                 timestamp,
             );
+
         let limited_index_price =
             agg_price::from_price(
                 &pool::symbol_price_config<Index, Direction>(),
                 decimal::from_raw(limited_index_price),
             );
+
         let position_id = PositionId<Collateral, Index, Direction> {
             id: position_num,
             owner: user_account
