@@ -14,8 +14,10 @@ module perpetual::pool {
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::event::emit;
     use aptos_framework::timestamp;
     use perpetual::lp;
+
     use mock::usdc::USDC;
     use mock::usdt::USDT;
     use mock::btc::BTC;
@@ -30,8 +32,13 @@ module perpetual::pool {
     friend perpetual::orders;
 
     struct LONG has drop {}
-
     struct SHORT has drop {}
+
+    #[event]
+    struct RateChanged has copy, drop, store {
+        acc_reserving_rate: Rate,
+        acc_funding_rate: SRate,
+    }
 
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
@@ -592,6 +599,12 @@ module perpetual::pool {
             symbol.acc_funding_rate,
             timestamp,
         );
+    
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+
         if (code > 0) {
             option::destroy_none(result);
 
@@ -726,6 +739,10 @@ module perpetual::pool {
             symbol.acc_funding_rate,
             timestamp,
         );
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
         if (code > 0) {
             option::destroy_none(result);
 
@@ -833,7 +850,7 @@ module perpetual::pool {
             decrease_amount,
             vault.acc_reserving_rate,
         );
-
+        
         // update vault
         vault.reserved_amount = vault.reserved_amount - decrease_amount;
         coin::merge(&mut vault.liquidity, decreased_reserved);
@@ -899,6 +916,12 @@ module perpetual::pool {
             timestamp,
         );
 
+
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+
         let event = RedeemFromPositionEvent {
             collateral_price: agg_price::price_of(&collateral_price),
             index_price: agg_price::price_of(&index_price),
@@ -958,6 +981,12 @@ module perpetual::pool {
             vault.acc_reserving_rate,
             symbol.acc_funding_rate,
         );
+
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+        
 
         // update vault
         vault.reserved_amount = vault.reserved_amount - reserved_amount;

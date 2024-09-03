@@ -2,6 +2,7 @@
   "scripts": {
     "run-init": "tsc init.ts --outDir dist && node dist/init.js",
     "update-rebate-rate": "tsc update_rebate_rate.ts --outDir dist && node dist/update_rebate_rate.js",
+    "batch-run": "tsc batch/batch_run.ts --outDir dist && node dist/batch/batch_run.js",
     "price": "tsc lp_price.ts --outDir dist && node dist/lp_price.js"
   },
   "dependencies": {

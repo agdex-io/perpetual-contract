@@ -22,3 +22,26 @@
     持有 lp 会有利润吗，是怎么计算的 ？
     pyth 怎么喂价的 ？
 
+
+
+1. Agdex
+    a.  合约测打印日志
+    b.  js 调用开仓脚步 
+    c.  批量 执行调用开仓脚步
+
+2. frontend
+    run dev
+    sync chensuo
+
+3. rns
+    swap & pay on evm
+    subscription on evm
+    swap & pay on solana 
+    subscription on solana
+    swap & pay on ton
+    subscription on ton
+
+4. ton & tact learning 
+
+    
+

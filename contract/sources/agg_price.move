@@ -62,11 +62,12 @@ module perpetual::agg_price {
             pyth_price::get_timestamp(&price) + config.max_interval >= timestamp,
             ERR_PRICE_STALED,
         );
+        
         assert!(
             pyth_price::get_conf(&price) <= config.max_confidence,
             ERR_EXCEED_PRICE_CONFIDENCE,
         );
-
+        
         let value = pyth_price::get_price(&price);
         // price can not be negative
         let value = pyth_i64::get_magnitude_if_positive(&value);
