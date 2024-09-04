@@ -189,10 +189,12 @@ module perpetual::market {
     // register_referrer_code errors
     const ERR_ALREADY_HAS_REFERRER_CODE: u64 = 14;
     const ERR_ALREADY_HAS_REGISTER_REFERRER: u64 = 15;
+     const ERR_REFERRER_CODE_LENGTH_TOO_SHORT: u64 = 16;
+     const ERR_REFERRER_CODE_LENGTH_TOO_LONG: u64 = 17;
 
     // add_referrer errors
-    const ERR_REFERRER_CODE_NOT_CREATED: u64 = 16;
-    const ERR_REFERRER_NOT_REGISTER: u64 = 17;
+    const ERR_REFERRER_CODE_NOT_CREATED: u64 = 18;
+    const ERR_REFERRER_NOT_REGISTER: u64 = 19;
 
 
     fun init_module(admin: &signer,) {
@@ -266,6 +268,10 @@ module perpetual::market {
         aptos_framework::managed_coin::register<BTC>(referrer);
         aptos_framework::managed_coin::register<ETH>(referrer);
 
+
+        let length = string::length(&code);
+        assert!(length >= 4, ERR_REFERRER_CODE_LENGTH_TOO_SHORT);
+        assert!(length <= 10, ERR_REFERRER_CODE_LENGTH_TOO_LONG);
 
         let market = borrow_global_mut<Market>(@perpetual);
 
@@ -788,7 +794,7 @@ module perpetual::market {
             if (referrer != @0x0) {
 
                 let rebate_amount = coin::value(&rebate);
-                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
@@ -801,7 +807,7 @@ module perpetual::market {
                 coin::deposit(user_account, rebate_amount_coin2);
 
                 coin::deposit(user_account, rebate);
-                
+
             } else {
                 coin::deposit(user_account, rebate);
             };

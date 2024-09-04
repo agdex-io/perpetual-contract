@@ -5,3 +5,4 @@ build
 .movement
 
 dist
+contract/scripts/dist
