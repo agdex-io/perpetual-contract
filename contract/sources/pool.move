@@ -35,6 +35,12 @@ module perpetual::pool {
     struct SHORT has drop {}
 
     #[event]
+    struct PoolOpenPosition has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice
+    }
+
+    #[event]
     struct RateChanged has copy, drop, store {
         acc_reserving_rate: Rate,
         acc_funding_rate: SRate,
@@ -599,7 +605,7 @@ module perpetual::pool {
             symbol.acc_funding_rate,
             timestamp,
         );
-    
+
         emit(RateChanged {
             acc_reserving_rate: vault.acc_reserving_rate,
             acc_funding_rate: symbol.acc_funding_rate,
@@ -658,6 +664,10 @@ module perpetual::pool {
                 rebate_amount,
             },
         };
+        emit(PoolOpenPosition {
+            index_price,
+            collateral_price
+        });
         (code, collateral, option::some(result), option::none())
 
     }
