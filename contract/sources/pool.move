@@ -69,6 +69,19 @@ module perpetual::pool {
         collateral_price: AggPrice,
     }
 
+    #[event]
+    struct PoolWithdraw {
+        burn_amount: u64,
+        min_amount_out: u64,
+        lp_supply_amount: Decimal,
+        withdraw_amount: u64,
+        treasury_reserve_value: Decimal,
+        treasury_reserve_amount: u64,
+        fee_rate: Rate,
+        fee_value: Decimal,
+        collateral_price: AggPrice,
+    }
+
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
         weight: Decimal,
@@ -453,6 +466,18 @@ module perpetual::pool {
         );
         let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
+
+        emit(PoolWithdraw {
+            burn_amount,
+            min_amount_out,
+            lp_supply_amount,
+            withdraw_amount,
+            treasury_reserve_value,
+            treasury_reserve_amount,
+            fee_rate,
+            fee_value,
+            collateral_price,
+        });
 
         (withdraw, fee_value)
     }
