@@ -37,7 +37,17 @@ module perpetual::pool {
     #[event]
     struct PoolOpenPosition has copy, drop, store {
         collateral_price: AggPrice,
-        index_price: AggPrice
+        index_price: AggPrice,
+        treasury_reserve_amount: u64,
+        rebate_amount: u64
+    }
+
+    #[event]
+    struct PoolDecreasePosition has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice,
+        treasury_reserve_amount: u64,
+        rebate_amount: u64
     }
 
     #[event]
@@ -666,10 +676,11 @@ module perpetual::pool {
         };
         emit(PoolOpenPosition {
             index_price,
-            collateral_price
+            collateral_price,
+            treasury_reserve_amount,
+            rebate_amount
         });
         (code, collateral, option::some(result), option::none())
-
     }
 
     public(friend) fun unwrap_open_position_result<C>(res: OpenPositionResult<C>): (
@@ -842,6 +853,12 @@ module perpetual::pool {
                 rebate_amount,
             },
         };
+        emit(PoolDecreasePosition{
+            collateral_price,
+            index_price,
+            rebate_amount,
+            treasury_reserve_amount
+        });
         (code, option::some(result), option::none())
 
     }
