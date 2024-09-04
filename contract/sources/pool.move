@@ -57,7 +57,7 @@ module perpetual::pool {
     }
 
     #[event]
-    struct PoolDeposit {
+    struct PoolDeposit has drop, copy, store {
         deposit_amount: u64,
         min_amount_out: u64,
         lp_supply_amount: Decimal,
@@ -70,7 +70,7 @@ module perpetual::pool {
     }
 
     #[event]
-    struct PoolWithdraw {
+    struct PoolWithdraw has copy, drop, store {
         burn_amount: u64,
         min_amount_out: u64,
         lp_supply_amount: Decimal,

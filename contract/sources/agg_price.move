@@ -11,7 +11,7 @@ module perpetual::agg_price {
     
     friend perpetual::market;
 
-    struct AggPrice has drop, store {
+    struct AggPrice has drop, store, copy {
         price: Decimal,
         precision: u64,
     }
