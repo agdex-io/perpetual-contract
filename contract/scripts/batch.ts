@@ -122,12 +122,6 @@ const symbol = PoolList[0]
 const open_position = async (vasBytes) => {
 
 
-    // const openAmount = 10;
-    // const collateral = 1
-    // const vaultPrice = 20;
-    // const slippage = 2;
-    // const inputPrice = 59000;
-
     const transaction = await aptos.transaction.build.simple({
         sender: singer.accountAddress,
         data: {
@@ -140,12 +134,12 @@ const open_position = async (vasBytes) => {
             ],
             functionArguments: [
                 1,
-                '332293',    // formatAptosDecimal(Number(openAmount), symbol.decimal),                     // open_amount
-                '200000000', // formatAptosDecimal(Number(collateral) * 20, vault.decimal),                 // reserve_amount
-                '10000000',  // formatAptosDecimal(Number(collateral), vault.decimal),                      // collateral
+                '632293',                                                                   // open_amount
+                '200000000',                                                                // reserve_amount
+                '10000000',                                                                  // collateral
                 10,                                                                         // fee_amount
-                '899944550999999872',//formatAptosDecimal(Number(vaultPrice * (1 - slippage)), 18),                // collateral_price_threshold
-                '64878437466755003580416',//formatAptosDecimal(Number(inputPrice), 18),                                 // trigger price
+                '899944550999999872',                                                       // collateral_price_threshold
+                '56700720324579996991488',                                                  // trigger price
                 vasBytes                                                                    // limited_index_price
             ],
         },
@@ -160,9 +154,9 @@ const open_position = async (vasBytes) => {
         transactionHash: committedTx.hash
     })
 
-    console.log(
-        `🚀 ~ Transaction submitted Add new Vault : ${vault.name}`, res
-    )
+    // console.log(
+    //     `🚀 ~ Transaction submitted Add: ${vault.name}`, res
+    // )
 }
 
 export const getTableHandle = async (address: string, resourceType: `${string}::${string}::${string}`) => {
@@ -200,8 +194,6 @@ export const getPositionTableHandle = async (vault: VaultInfo, symbol: PoolInfo)
     return { longPositionResult }
 }
 
-
-
 export const getAllUserPositions = async (ownerAddress: string, tableHandle: string) => {
     if (tableHandle && tableHandle.length !== 66) {
         tableHandle = '0x'.concat('0'.repeat(66 - tableHandle.length)).concat(tableHandle.slice(2))
@@ -234,29 +226,7 @@ const fetchPositions = async (handle: string) => {
     return result
 }
 
-
-export const parseAptosDecimal = (value: number, decimals: number = 8) => {
-    return value / Math.pow(10, decimals);
-}
-
-export const calLeverage = (positionSize: number, collateralValue: number) => {
-    return (positionSize / collateralValue).toFixed(2)
-}
-
-export const calEntryPrice = (size: number, amount: number) => {
-    return (size / amount).toFixed(6)
-}
-
-export const calEstLiqPrice = (size: number, amount: number, collateral: number, direction: string, vaultPrice: number) => {
-    return direction === LONG ? ((size - collateral * 98 / 100 * vaultPrice) / amount).toFixed(6) : ((collateral * 98 / 100 * vaultPrice + size) / amount).toFixed(6)
-}
-
-export const calUnPnLCollateral = (size: number, amount: number, collateral: number, vaultPrice: number, symbolPrice: number, direction: string) => {
-    const position_value_diff = amount * symbolPrice - size
-    return direction === LONG ? (position_value_diff / vaultPrice) : -(position_value_diff / vaultPrice)
-}
-
-const clear_open_position_order = async(orderId) => {
+const clear_open_position_order = async (orderId) => {
 
     // const vault = VaultList[0]
     // const symbol = PoolList[0]
@@ -284,15 +254,12 @@ const clear_open_position_order = async(orderId) => {
         transactionHash: committedTx.hash
     })
 
-    console.log(
-        `🚀 ~ Transaction submitted Add new Vault : ${vault.name}`, res
-    )
+    // console.log(
+    //     `🚀 ~ Transaction submitted Add: ${vault.name}`, res
+    // )
 }
 
 const decrease_position = async (vasBytes) => {
-
-    // const vault = VaultList[0]
-    // const symbol = PoolList[0]
 
     const { longPositionResult } = await getPositionTableHandle(vault, symbol)
 
@@ -305,67 +272,70 @@ const decrease_position = async (vasBytes) => {
     const sideLongPositionData = longPosition.map((item) => ({
         ...item,
         side: LONG,
-      }))
-  
-      const combinedData: any[] = [
+    }))
+
+    const combinedData: any[] = [
         ...sideLongPositionData,
-      ]
-      const orderMap: { [key: string]: any } = {}
-      combinedData.forEach((order) => {
+    ]
+    const orderMap: { [key: string]: any } = {}
+    combinedData.forEach((order) => {
         if (!orderMap[order?.decoded_key?.id.toString().concat(order?.side)]) {
-          orderMap[order?.decoded_key?.id.toString().concat(order?.side)] = order
+            orderMap[order?.decoded_key?.id.toString().concat(order?.side)] = order
         }
-      })
-      const updatedCombinedData = Object.values(orderMap)
-  
-      const filterList = updatedCombinedData.filter(
+    })
+    const updatedCombinedData = Object.values(orderMap)
+
+    const filterList = updatedCombinedData.filter(
         (item) => !item?.decoded_value?.closed
-      )
-  
-      const sortedData: any[] = filterList.sort((a, b) => {
+    )
+
+    const sortedData: any[] = filterList.sort((a, b) => {
         const verA = a.transaction_version
         const verB = b.transaction_version
         return verB - verA
-      })
-
-    const positionId = sortedData[0].decoded_key.id
-    const position_amount = sortedData[0].decoded_value.position_amount
-    
-    const transaction = await aptos.transaction.build.simple({
-        sender: singer.accountAddress,
-        data: {
-            function: `${moduleAddress}::market::decrease_position`,
-            typeArguments: [
-                vault.tokenAddress,
-                symbol.tokenAddress,
-                getSideAddress(side),
-                APTOS_COIN,
-            ],
-            functionArguments: [
-                1,
-                10,
-                true,
-                position_amount,
-                formatAptosDecimal(Number(0.8999119 ), 18),                          // collateral_price_threshold
-                formatAptosDecimal(Number(52961.535000000004620288), 18),            // limited_index_price
-                positionId,
-                vasBytes,                                                           // limited_index_price
-            ],
-        }
     })
+    console.log('sortedData:', sortedData.length)
 
-    const committedTx = await aptos.signAndSubmitTransaction({
-        signer: singer,
-        transaction: transaction,
-    })
+    for (let i = 0; i < sortedData.length; i++) {
+        const positionId = sortedData[0].decoded_key.id
+        const position_amount = sortedData[0].decoded_value.position_amount
 
-    const res = await aptos.waitForTransaction({
-        transactionHash: committedTx.hash
-    })
+        const transaction = await aptos.transaction.build.simple({
+            sender: singer.accountAddress,
+            data: {
+                function: `${moduleAddress}::market::decrease_position`,
+                typeArguments: [
+                    vault.tokenAddress,
+                    symbol.tokenAddress,
+                    getSideAddress(side),
+                    APTOS_COIN,
+                ],
+                functionArguments: [
+                    1,                                                    // trade_level
+                    10,                                                   // fee_amount
+                    true,                                                 // take_profit
+                    position_amount,                                      // decrease_amount
+                    '899944550999999872',                                 // collateral_price_threshold
+                    '56700720324579996991488',                            // limited_index_price
+                    positionId,
+                    vasBytes,                                                            // limited_index_price
+                ],
+            }
+        })
 
-    console.log(
-        `🚀 ~ Transaction submitted Add new Vault : ${vault.name}`, res
-    )
+        const committedTx = await aptos.signAndSubmitTransaction({
+            signer: singer,
+            transaction: transaction,
+        })
+
+        const res = await aptos.waitForTransaction({
+            transactionHash: committedTx.hash
+        })
+
+        console.log(
+            `🚀 ~ Transaction submitted Add: ${vault.name}`, res
+        )
+    }
 }
 
 (async () => {
@@ -374,11 +344,11 @@ const decrease_position = async (vasBytes) => {
 
     const vasBytes = await fetchVaasBytes()
 
-    for (let i = 0; i < 10; i++) {
-        await open_position(vasBytes)
-    }
-    
-    // await decrease_position(vasBytes)
+    // for (let i = 0; i < 10; i++) {
+    //     await open_position(vasBytes)
+    // }
+
+    await decrease_position(vasBytes)
 
     // for(let orderId = 70; orderId< 100; orderId++) {
     //     try{
