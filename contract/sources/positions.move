@@ -2,6 +2,7 @@ module perpetual::positions {
 
     use std::option::{Self, Option};
     use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::event::emit;
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
@@ -73,6 +74,38 @@ module perpetual::positions {
         funding_fee_value: SDecimal,
         to_vault: Coin<Collateral>,
         to_trader: Coin<Collateral>,
+    }
+
+    #[event]
+    struct PositionOpenPosition<phantom Collateral> has copy, drop, store {
+        closed: bool,
+        config: PositionConfig,
+        open_timestamp: u64,
+        position_amount: u64,
+        position_size: Decimal,
+        reserving_fee_amount: Decimal,
+        funding_fee_value: SDecimal,
+        last_reserving_rate: Rate,
+        last_funding_rate: SRate,
+        reserved: u64,
+        collateral: u64,
+
+    }
+
+    #[event]
+    struct PositionDecreasePosition<phantom Collateral> has copy, drop, store {
+        closed: bool,
+        has_profit: bool,
+        decrease_timestamp: u64,
+        settled_amount: u64,
+        decreased_reserved_amount: u64,
+        decrease_size: Decimal,
+        reserving_fee_amount: Decimal,
+        decrease_fee_value: Decimal,
+        reserving_fee_value: Decimal,
+        funding_fee_value: SDecimal,
+        to_vault: u64,
+        to_trader: u64,
     }
 
     public(friend) fun new_position_config(
@@ -172,6 +205,19 @@ module perpetual::positions {
             collateral: coin::extract_all(collateral),
         };
 
+        emit(PositionOpenPosition<Collateral> {
+            closed: false,
+            config: *config,
+            open_timestamp: timestamp,
+            position_amount: open_amount,
+            position_size: open_size,
+            reserving_fee_amount: decimal::zero(),
+            funding_fee_value: sdecimal::zero(),
+            last_reserving_rate: reserving_rate,
+            last_funding_rate: funding_rate,
+            reserved: coin::value(&position.reserved),
+            collateral: coin::value(&position.collateral),
+        });
         let result = OpenPositionResult {
             position,
             open_fee,
@@ -337,6 +383,20 @@ module perpetual::positions {
             coin::merge(&mut to_vault, coin::extract_all(&mut position.reserved));
             coin::merge(&mut to_trader, coin::extract_all(&mut position.collateral));
         };
+        emit(PositionDecreasePosition<Collateral> {
+            closed,
+            has_profit,
+            decrease_timestamp: timestamp,
+            settled_amount,
+            decreased_reserved_amount,
+            decrease_size,
+            reserving_fee_amount,
+            decrease_fee_value,
+            reserving_fee_value,
+            funding_fee_value,
+            to_vault: coin::value(&to_vault),
+            to_trader: coin::value(&to_trader),
+        });
 
         let result = DecreasePositionResult {
             closed,
