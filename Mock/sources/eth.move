@@ -53,7 +53,7 @@ module mock::ETH {
         if (sender_addr == @mock) {
             let fake_coin = coin::mint<ETH>(10000000000000, &cap.mint_cap);
             coin::deposit(signer::address_of(sender), fake_coin);
-            return;
+            return
         };
         if (!table::contains(&rec.record, sender_addr)) {
             table::add(&mut rec.record, sender_addr, now);

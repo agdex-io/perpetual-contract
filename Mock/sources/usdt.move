@@ -51,7 +51,7 @@ module mock::usdt {
         if (sender_addr == @mock) {
             let fake_coin = coin::mint<USDT>(10000000000000, &cap.mint_cap);
             coin::deposit(signer::address_of(sender), fake_coin);
-            return;
+            return
         };
         let rec = borrow_global_mut<MintRecord>(@mock);
         if (!table::contains(&rec.record, sender_addr)) {
