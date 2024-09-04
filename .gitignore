@@ -3,3 +3,4 @@ build
 .aptos
 .DS_Store
 .movement
+contract/scripts/dist
