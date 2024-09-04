@@ -56,6 +56,19 @@ module perpetual::pool {
         acc_funding_rate: SRate,
     }
 
+    #[event]
+    struct PoolDeposit {
+        deposit_amount: u64,
+        min_amount_out: u64,
+        lp_supply_amount: Decimal,
+        mint_amount: u64,
+        treasury_reserve_value: Decimal,
+        treasury_reserve_amount: u64,
+        fee_rate: Rate,
+        fee_value: Decimal,
+        collateral_price: AggPrice,
+    }
+
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
         weight: Decimal,
@@ -356,6 +369,17 @@ module perpetual::pool {
             )
         };
         assert!(mint_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+        emit(PoolDeposit{
+            deposit_amount,
+            min_amount_out,
+            lp_supply_amount,
+            mint_amount,
+            treasury_reserve_value,
+            treasury_reserve_amount,
+            fee_rate,
+            fee_value,
+            collateral_price,
+        });
 
         (mint_amount, fee_value)
     }
