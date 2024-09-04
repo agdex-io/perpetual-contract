@@ -87,7 +87,7 @@ async function simulateTransaction() {
             function: `${moduleAddress}::market::deposit`,
             typeArguments: [APTOS_VAULT_ADDRESS],
             functionArguments: [
-                100000000, // deposit amount
+                100000000, // deposit amount(unit amount)
                 0,
                 new MoveVector<MoveVector<U8>>([]),
             ],

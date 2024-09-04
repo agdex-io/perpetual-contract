@@ -38,7 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatAptosDecimal = exports.DOGE_FEEDER_ADDRESS = exports.PEPE_FEEDER_ADDRESS = exports.AVAX_FEEDER_ADDRESS = exports.SOL_FEEDER_ADDRESS = exports.BNB_FEEDER_ADDRESS = exports.ETH_FEEDER_ADDRESS = exports.BTC_FEEDER_ADDRESS = exports.USDC_FEEDER_ADDRESS = exports.USDT_FEEDER_ADDRESS = exports.APT_FEEDER_ADDRESS = exports.COIN_ADDRESS = exports.FEERDER_ADDRESS = exports.MODULE_ADDRESS = void 0;
 var ts_sdk_1 = require("@aptos-labs/ts-sdk");
-exports.MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d";
+exports.MODULE_ADDRESS = "0x565904b9a3195938d5d94b892cfa384a4fa5489b7ea5315169226cfec158b44d";
 exports.FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387";
 exports.COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5";
 exports.APT_FEEDER_ADDRESS = "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e";
@@ -60,7 +60,7 @@ var aptosConfig = new ts_sdk_1.AptosConfig({ network: ts_sdk_1.Network.TESTNET }
 var aptos = new ts_sdk_1.Aptos(aptosConfig);
 var moduleAddress = exports.MODULE_ADDRESS;
 var coinAddress = exports.COIN_ADDRESS;
-var PRIVATE_KEY = '0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4';
+var PRIVATE_KEY = '0xe52ddd156f701b8b51f65a88bd51d3646f88b0fc656bc1b4903acfd7f15ff6cf';
 var singer = ts_sdk_1.Account.fromPrivateKey({
     privateKey: new ts_sdk_1.Ed25519PrivateKey(PRIVATE_KEY),
 });
@@ -308,6 +308,7 @@ function executeAddNewVault() {
                                     vault.param_multiplier,
                                 ],
                             },
+                            options: { expireTimestamp: Math.floor(Date.now() / 1000 + 1000) }
                         })];
                 case 2:
                     transaction = _a.sent();
@@ -370,6 +371,7 @@ function executeAddNewSymbol() {
                                     symbol.liquidation_bonus,
                                 ],
                             },
+                            options: { expireTimestamp: Math.floor(Date.now() / 1000 + 1000) }
                         })];
                 case 3:
                     transaction = _b.sent();
@@ -428,6 +430,7 @@ function executeAddCollateralToSymbol() {
                                 ],
                                 functionArguments: [],
                             },
+                            options: { expireTimestamp: Math.floor(Date.now() / 1000 + 1000) }
                         })];
                 case 4:
                     transaction = _c.sent();
