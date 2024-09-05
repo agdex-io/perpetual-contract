@@ -19,9 +19,29 @@ export async function check(hash: HexInput) {
     const PoolWithdrawEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolWithdraw")>=0);
     console.log(PoolWithdrawEvent);
 
-    // fee rate
-    // fee value
+    if(PoolWithdrawEvent.length != 1) throw new Error("Not Successful TXN");
+
+    // fee amount
+    if (Number(PoolWithdrawEvent[0]['data']['fee_rate']['value']) != Number(FeeInfo['rebateFee'])) {
+        throw new Error("Rebate Rate Not Correct");
+    }
+    const burnAmount = PoolWithdrawEvent[0]['data']['burn_amount'];
+    const collateralPrice = PoolWithdrawEvent[0]['data']['collateral_price'];
+    const depositValue = Number(burnAmount) * Number(collateralPrice['price']['value']) / Number(collateralPrice['precision']);
+    console.log(depositValue);
+    const feeValue = (depositValue * Number(FeeInfo['rebateFee']) / Math.pow(10, 18));
+    console.log(feeValue);
+    console.log(Number(PoolWithdrawEvent[0]['data']['fee_value']['value']));
+    // console.log(PoolWithdrawEvent[0]['data']['fee_value'])
+    if (feeValue != Number(PoolWithdrawEvent[0]['data']['fee_value']['value'])) {
+        throw new Error("Rebate Fee Error");
+    }
     // treasury reserve amount
+    const treasury_reserve_amount = feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
+                                    * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']);
+    if (treasury_reserve_amount != Number(PoolWithdrawEvent[0]['data']['treasury_reserve_amount'])) {
+        throw new Error("Treasury reserve fee Error")
+    }
     // withdraw amount
 
 }
