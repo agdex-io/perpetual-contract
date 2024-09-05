@@ -36,8 +36,8 @@ export async function check(hash: HexInput) {
         throw new Error("Rebate Fee Error");
     }
     // treasury reserve amount
-    const treasury_reserve_amount = feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
-                                    * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']);
+    const treasury_reserve_amount = Math.floor(feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
+                                    * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']));
     if (treasury_reserve_amount != Number(PoolDepositEvent[0]['data']['treasury_reserve_amount'])) {
         throw new Error("Treasury reserve fee Error")
     }
