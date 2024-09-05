@@ -4,7 +4,8 @@
     "update-rebate-rate": "tsc update_rebate_rate.ts --outDir dist && node dist/update_rebate_rate.js",
     "batch": "tsc batch.ts --outDir dist && node dist/batch.js",
     "price": "tsc lp_price.ts --outDir dist && node dist/lp_price.js",
-    "deposit-check": "tsc depositCheck.ts --outDir dist && node dist/depositCheck.js"
+    "deposit-check": "tsc ./check/depositCheck.ts --outDir dist && node dist/check/depositCheck.js",
+    "withdraw-check": "tsc ./check/withdrawCheck.ts --outDir dist && node dist/check/withdrawCheck.js"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^1.27.0",
