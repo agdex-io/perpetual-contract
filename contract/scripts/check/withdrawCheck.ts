@@ -33,9 +33,9 @@ export async function check(hash: HexInput) {
     const withdrawValue = Number(marketValue) * (Number(burnAmount) * Math.pow(10, 18) / (Number(lpSupplyAmount)));
     const feeValue = (Number(withdrawValue) * Number(FeeInfo['rebateFee'])) / Math.pow(10, 18);
     const feeValueCheck = Number(PoolWithdrawEvent[0]['data']['fee_value']['value']);
-    // if (feeValue != feeValueCheck) {
-    //     throw new Error("Rebate Fee Error: "+BigNumber(feeValue).minus(BigNumber(feeValueCheck)).toString());
-    // }
+    if (feeValue != feeValueCheck) {
+        throw new Error("Rebate Fee Error: "+BigNumber(feeValue).minus(BigNumber(feeValueCheck)).toString());
+    }
     // treasury reserve amount
     const treasuryReserveAmount = Math.floor(feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
                                     * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']));
