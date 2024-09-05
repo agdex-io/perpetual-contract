@@ -377,7 +377,7 @@ module perpetual::pool {
         );
         let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
         // compute and settle treasrury reserve amount
-        let treasury_reserve_value = decimal::mul_with_rate(withdraw_value, treasury_ratio);
+        let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
         withdraw_value = decimal::add(withdraw_value, treasury_reserve_value);
 
