@@ -98,18 +98,20 @@ async function check(hash: HexInput) {
     console.log(depositValue);
     const feeValue = (depositValue * Number(FeeInfo['rebateFee']) / Math.pow(10, 18));
     console.log(feeValue);
-    console.log(PoolDepositEvent[0]['data']['fee_value']);
+    console.log(Number(PoolDepositEvent[0]['data']['fee_value']['value']));
     // console.log(PoolDepositEvent[0]['data']['fee_value'])
-    if (feeValue == Number(PoolDepositEvent[0]['data']['fee_value']['value'])) {
+    if (feeValue != Number(PoolDepositEvent[0]['data']['fee_value']['value'])) {
         throw new Error("Rebate Fee Error");
     }
     // treasury reserve amount
     const treasury_reserve_amount = feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
-                                     * Number(collateralPrice['precision']) * Math.pow(10, 18)
-                                    / Number(collateralPrice['price']['value']);
-    console.log(treasury_reserve_amount);
+                                    * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']);
+    if (treasury_reserve_amount != Number(PoolDepositEvent[0]['data']['treasury_reserve_amount'])) {
+        throw new Error("Treasury reserve fee Error")
+    }
 
     // mint amount
+
 
 }
 
