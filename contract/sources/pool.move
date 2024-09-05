@@ -466,7 +466,7 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
+        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
 
         emit(PoolWithdraw {
