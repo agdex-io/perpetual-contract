@@ -12,8 +12,8 @@ module perpetual::orders {
 
     friend perpetual::market;
 
-    const ERR_ORDER_ALREADY_EXECUTED: u64 = 1;
-    const ERR_INDEX_PRICE_NOT_TRIGGERED: u64 = 2;
+    const ERR_ORDER_ALREADY_EXECUTED: u64 = 40001;
+    const ERR_INDEX_PRICE_NOT_TRIGGERED: u64 = 40002;
 
     struct OpenPositionOrder<phantom CoinType, phantom Fee> has store {
         executed: bool,

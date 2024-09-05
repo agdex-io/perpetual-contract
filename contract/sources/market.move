@@ -169,32 +169,32 @@ module perpetual::market {
 
     // === Errors ===
     // common errors
-    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 1;
-    const ERR_MARKET_ALREADY_LOCKED: u64 = 2;
+    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
+    const ERR_MARKET_ALREADY_LOCKED: u64 = 10002;
     // referral errors
-    const ERR_ALREADY_HAS_REFERRAL: u64 = 3;
+    const ERR_ALREADY_HAS_REFERRAL: u64 = 10003;
     // perpetual trading errors
-    const ERR_INVALID_DIRECTION: u64 = 4;
-    const ERR_CAN_NOT_CREATE_ORDER: u64 = 5;
-    const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 6;
+    const ERR_INVALID_DIRECTION: u64 = 10004;
+    const ERR_CAN_NOT_CREATE_ORDER: u64 = 10005;
+    const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 10006;
     // deposit, withdraw and swap errors
-    const ERR_VAULT_ALREADY_HANDLED: u64 = 7;
-    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 8;
-    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 9;
-    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10;
-    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 11;
-    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 12;
-    const ERR_SWAPPING_SAME_COINS: u64 = 13;
+    const ERR_VAULT_ALREADY_HANDLED: u64 = 10007;
+    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 10008;
+    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 10009;
+    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10010;
+    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 10011;
+    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 10012;
+    const ERR_SWAPPING_SAME_COINS: u64 = 10013;
 
     // register_referrer_code errors
-    const ERR_ALREADY_HAS_REFERRER_CODE: u64 = 14;
-    const ERR_ALREADY_HAS_REGISTER_REFERRER: u64 = 15;
-     const ERR_REFERRER_CODE_LENGTH_TOO_SHORT: u64 = 16;
-     const ERR_REFERRER_CODE_LENGTH_TOO_LONG: u64 = 17;
+    const ERR_ALREADY_HAS_REFERRER_CODE: u64 = 10014;
+    const ERR_ALREADY_HAS_REGISTER_REFERRER: u64 = 10015;
+    const ERR_REFERRER_CODE_LENGTH_TOO_SHORT: u64 = 10016;
+    const ERR_REFERRER_CODE_LENGTH_TOO_LONG: u64 = 10017;
 
     // add_referrer errors
-    const ERR_REFERRER_CODE_NOT_CREATED: u64 = 18;
-    const ERR_REFERRER_NOT_REGISTER: u64 = 19;
+    const ERR_REFERRER_CODE_NOT_CREATED: u64 = 10018;
+    const ERR_REFERRER_NOT_REGISTER: u64 = 10019;
 
 
     fun init_module(admin: &signer,) {
