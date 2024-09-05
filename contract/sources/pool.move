@@ -72,8 +72,11 @@ module perpetual::pool {
     #[event]
     struct PoolWithdraw has copy, drop, store {
         burn_amount: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
         min_amount_out: u64,
         lp_supply_amount: Decimal,
+        withdraw_value: Decimal,
         withdraw_amount: u64,
         treasury_reserve_value: Decimal,
         treasury_reserve_amount: u64,
@@ -469,8 +472,11 @@ module perpetual::pool {
 
         emit(PoolWithdraw {
             burn_amount,
+            market_value,
+            vault_value,
             min_amount_out,
             lp_supply_amount,
+            withdraw_value,
             withdraw_amount,
             treasury_reserve_value,
             treasury_reserve_amount,
