@@ -204,3 +204,8 @@ export const PriceFeederList: PriceFeederInfo[] = [
     { tokenName: 'DOGE', tokenSymbol: 'DOGE', feederAddress: "31775e1d6897129e8a84eeba975778fb50015b88039e9bc140bbd839694ac0ae", decimal: 8 }
 ];
 
+export const FeeInfo = {
+    rebateFee: "10000000000000000",
+    treasuryReserveFee: "250000000000000000"
+}
+

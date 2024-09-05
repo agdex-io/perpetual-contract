@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+contract_address = "0x565904b9a3195938d5d94b892cfa384a4fa5489b7ea5315169226cfec158b44d"
 
 
 class MarketClient(RestClient):
@@ -442,7 +442,7 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4"
+        "0xe52ddd156f701b8b51f65a88bd51d3646f88b0fc656bc1b4903acfd7f15ff6cf"
     )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
@@ -482,7 +482,7 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "LONG")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
-    txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 1000000, 0)
+    txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 10000000, 0)
     # txn_hash = await rest_client.withdraw(sender, "0x1::aptos_coin::AptosCoin", 6000000, 0)
 
     # txn_hash = await rest_client.open_position(
