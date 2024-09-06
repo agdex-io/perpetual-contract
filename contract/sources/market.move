@@ -278,6 +278,14 @@ module perpetual::market {
         market.treasury_ratio = rate::from_raw(treasury_ratio);
     }
 
+    public entry fun update_rebase_model(admin: &signer, rate_raw: u128, multiplier_raw: u256) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        let base_rate = rate::from_raw(rate_raw);
+        let multiplier = decimal::from_raw(multiplier_raw);
+        model::update_rebase_fee_model(&mut market.rebase_model, base_rate, multiplier);
+    }
+
     public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
         
 
