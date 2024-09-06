@@ -254,18 +254,29 @@ module perpetual::market {
 
 
     public entry fun update_rebate_rate(admin: &signer, rebate_rate: u8) acquires Market {
-        let market = borrow_global_mut<Market>(@perpetual);
         admin::check_permission(signer::address_of(admin));
-        
+        let market = borrow_global_mut<Market>(@perpetual);
+
         market.rebate_model = rate::from_percent(rebate_rate);
     }   
 
     public entry fun update_rebate_rate_raw(admin: &signer, rebate_rate: u128) acquires Market {
-        let market = borrow_global_mut<Market>(@perpetual);
         admin::check_permission(signer::address_of(admin));
-        
+        let market = borrow_global_mut<Market>(@perpetual);
+
         market.rebate_model = rate::from_raw(rebate_rate);
-    }   
+    }
+
+    public entry fun update_treasury_reserve_config(
+        admin: &signer,
+        treasury_address: address,
+        treasury_ratio: u128
+    ) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        market.treasury_address = treasury_address;
+        market.treasury_ratio = rate::from_raw(treasury_ratio);
+    }
 
     public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
         
