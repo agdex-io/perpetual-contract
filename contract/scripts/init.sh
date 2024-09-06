@@ -16,5 +16,10 @@
 
 # update treasury reserve config
 
-add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_treasury_reserve_config --args address:0x8a03c8a51f5e98eea3e314e9e56b6dc153059a578810f57713b1e8a6779efdb3 u128:250000000000000000 --assume-yes`
+#add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_treasury_reserve_config --args address:0x8a03c8a51f5e98eea3e314e9e56b6dc153059a578810f57713b1e8a6779efdb3 u128:250000000000000000 --assume-yes`
+#echo "$add_admin"
+
+# update rebase model
+
+add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_rebase_model --args u128:1000000000000000 u256:0 --assume-yes`
 echo "$add_admin"
