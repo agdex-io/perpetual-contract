@@ -259,6 +259,14 @@ module perpetual::market {
         
         market.rebate_model = rate::from_percent(rebate_rate);
     }   
+
+    public entry fun update_rebate_rate_raw(admin: &signer, rebate_rate: u128) acquires Market {
+        let market = borrow_global_mut<Market>(@perpetual);
+        admin::check_permission(signer::address_of(admin));
+        
+        market.rebate_model = rate::from_raw(rebate_rate);
+    }   
+
     public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
         
 
