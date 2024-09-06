@@ -379,7 +379,6 @@ module perpetual::pool {
         // compute and settle treasrury reserve amount
         let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
-        withdraw_value = decimal::add(withdraw_value, treasury_reserve_value);
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &vault.price_config,
@@ -404,7 +403,7 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
+        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
 
         (withdraw, fee_value)
