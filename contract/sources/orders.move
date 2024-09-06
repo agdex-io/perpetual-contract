@@ -82,6 +82,13 @@ module perpetual::orders {
         order
     }
 
+    public fun open_amount_of<Collateral, Fee>(order: &OpenPositionOrder<Collateral, Fee>): u64 {
+        order.open_amount
+    }
+    public fun decrease_open_amount_of<Fee>(order: &DecreasePositionOrder<Fee>): u64 {
+        order.decrease_amount
+    }
+
 
     public(friend) fun new_decrease_position_order<Fee>(
         timestamp: u64,
