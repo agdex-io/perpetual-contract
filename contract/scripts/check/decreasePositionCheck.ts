@@ -20,12 +20,20 @@ export async function check(hash: HexInput) {
     const rateChangedEvent = response['events'].filter((e) => e['type'].indexOf("pool::RateChanged")>=0);
     const poolDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolDecreasePosition")>=0);
     const positionDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("position::PositioDecreasePosition")>=0);
+    console.log(poolDecreasePositionEvent)
 
-    // decrease fee rate
     // decrease fee value
+    decreaseSize = decreaseAmount / positionAmount * positionSize
+    decreaseFeeValue = decreaseSize * decreaseFeeRate
     // treasury reserve amount
+    decreaseFeeValue * treasuryReserveRate
     // rebate fee value
-    // 
+    decreaseFeeValue * rebateRate
+    // settled amount
+    settledSize = deltaSize * decreaseAmount / positionSize - (fundingFeeValue + decreaseFeeValue + reservingFeeValue)
+    settleAmount = settledSize / collateralPrice
+
+
 
 }
 
@@ -34,5 +42,5 @@ async function main(hash: HexInput) {
 }
 
 (async () => {
-    await main("0xa801c39e7c62361c9ae6a32eb5e5f6c88552dc50f47bb96dd4b08b641e7c7691")
+    await main("0xfde94fa5f25518d5952188c4af66f7765c45b2c1c20df0cca0b83c86ba1f77dd")
 })()

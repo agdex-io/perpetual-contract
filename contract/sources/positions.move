@@ -93,6 +93,19 @@ module perpetual::positions {
     }
 
     #[event]
+    struct PositionSnapshot<phantom Collateral> has copy, drop, store {
+        closed: bool,
+        config: PositionConfig,
+        open_timestamp: u64,
+        position_amount: u64,
+        position_size: Decimal,
+        reserving_fee_amount: Decimal,
+        funding_fee_value: SDecimal,
+        last_reserving_rate: Rate,
+        last_funding_rate: SRate
+    }
+
+    #[event]
     struct PositionDecreasePosition<phantom Collateral> has copy, drop, store {
         closed: bool,
         has_profit: bool,
@@ -240,6 +253,17 @@ module perpetual::positions {
         if (position.closed) {
             return (ERR_ALREADY_CLOSED, option::none())
         };
+        emit(PositionSnapshot<Collateral>{
+            closed: position.closed,
+            config: position.config,
+            open_timestamp: position.open_timestamp,
+            position_amount: position.position_amount,
+            position_size: position.position_size,
+            reserving_fee_amount: position.reserving_fee_amount,
+            funding_fee_value: position.funding_fee_value,
+            last_reserving_rate: position.last_reserving_rate,
+            last_funding_rate: position.last_funding_rate
+        });
         if (
             decimal::lt(
                 &agg_price::price_of(collateral_price),

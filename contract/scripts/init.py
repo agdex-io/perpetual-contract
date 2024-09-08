@@ -310,6 +310,7 @@ class MarketClient(RestClient):
                 TransactionArgument(collateral_price_threshold, Serializer.u256),
                 TransactionArgument(limited_index_price, Serializer.u256),
                 TransactionArgument(position_num, Serializer.u64),
+                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
             ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
@@ -482,38 +483,38 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "LONG")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
-    # txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 10000000, 0)
-    txn_hash = await rest_client.withdraw(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 6000000, 0)
+    # txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 50000000, 0)
+    # txn_hash = await rest_client.withdraw(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 6000000, 0)
 
     # txn_hash = await rest_client.open_position(
     #     sender,
-    #     "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC",
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
     #     "0x1::aptos_coin::AptosCoin",
     #     "LONG",
     #     "0x1::aptos_coin::AptosCoin",
     #     1, # trading level
-    #     100000000, # open amount
-    #     200000000, # reserve amount
-    #     100000000, # collateral amount
+    #     10000000, # open amount
+    #     20000000, # reserve amount
+    #     10000000, # collateral amount
     #     10, # fee amount
     #     908650100000000000, # collateral_price_threshold
-    #     7038650100000000000 # limited_index_price
+    #     6038650100000000000 # limited_index_price
     # )
 
-    # txn_hash = await rest_client.decrease_position(
-    #     sender,
-    #     "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC",
-    #     "0x1::aptos_coin::AptosCoin",
-    #     "LONG",
-    #     "0x1::aptos_coin::AptosCoin",
-    #     1,
-    #     100,
-    #     True,
-    #     100000000,
-    #     8163025540,
-    #     8108650100000000000,
-    #     0
-    # )
+    txn_hash = await rest_client.decrease_position(
+        sender,
+        "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+        "0x1::aptos_coin::AptosCoin",
+        "LONG",
+        "0x1::aptos_coin::AptosCoin",
+        1,
+        100,
+        True,
+        5000000,
+        908650100000000000,
+        4038650100000000000,
+        0
+    )
 
     # txn_hash = await rest_client.execute_open_postion_order(
     #     sender,
