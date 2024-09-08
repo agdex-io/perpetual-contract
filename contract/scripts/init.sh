@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 # add admin to acl
-add_admin=`aptos move run --function-id 0x1a911ef2f607357dc1668b5395e775f4b44d2b8708b1b4ce0252f004953ff202::admin::add_acl --args 'address:["0x1a911ef2f607357dc1668b5395e775f4b44d2b8708b1b4ce0252f004953ff202"]' --assume-yes`
+add_admin=`aptos move run --function-id 0x34b01c963c348d1d1369ef07fbf4c3f390186007b3e21917d6e36c7342b4b080::admin::add_acl --args 'address:["0x34b01c963c348d1d1369ef07fbf4c3f390186007b3e21917d6e36c7342b4b080"]' --assume-yes`
 echo "$add_admin"
 
 # add new vault

@@ -206,6 +206,7 @@ export const PriceFeederList: PriceFeederInfo[] = [
 
 export const FeeInfo = {
     rebateFee: "10000000000000000",
-    treasuryReserveFee: "250000000000000000"
+    treasuryReserveFee: "250000000000000000",
+    decreaseFeeInfo: "1000000000000000"
 }
 

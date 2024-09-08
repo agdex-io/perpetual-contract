@@ -102,7 +102,9 @@ module perpetual::positions {
         reserving_fee_amount: Decimal,
         funding_fee_value: SDecimal,
         last_reserving_rate: Rate,
-        last_funding_rate: SRate
+        last_funding_rate: SRate,
+        reserved_amount: u64,
+        collateral_amount: u64
     }
 
     #[event]
@@ -262,7 +264,9 @@ module perpetual::positions {
             reserving_fee_amount: position.reserving_fee_amount,
             funding_fee_value: position.funding_fee_value,
             last_reserving_rate: position.last_reserving_rate,
-            last_funding_rate: position.last_funding_rate
+            last_funding_rate: position.last_funding_rate,
+            reserved_amount: coin::value(&position.reserved),
+            collateral_amount: coin::value(&position.collateral)
         });
         if (
             decimal::lt(
