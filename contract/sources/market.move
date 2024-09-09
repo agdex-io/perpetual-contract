@@ -174,6 +174,14 @@ module perpetual::market {
         rebate_user_amount: u64,
         rebate_referrer_amount: u64,
     }
+     #[event]
+    struct ReferrerProfitExecute<phantom Collateral, phantom Index> has copy, drop, store {
+        user: address,
+        referrer: address,
+        amount: u64,
+        rebate_user_amount: u64,
+        rebate_referrer_amount: u64,
+    }
 
     #[event]
     struct OrderCleared<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {}
@@ -700,7 +708,7 @@ module perpetual::market {
 
                 coin::deposit(user_account, rebate);
 
-                emit(ReferrerProfitExecuted<Collateral, Index, Direction> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
                     referrer: referrer,
                     amount: open_amount,
@@ -850,7 +858,7 @@ module perpetual::market {
 
                 coin::deposit(user_account, rebate);
 
-                emit(ReferrerProfitExecuted<Collateral, Index, Direction> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
                     referrer: referrer,
                     amount: decrease_amount,
@@ -1087,7 +1095,7 @@ module perpetual::market {
                 coin::deposit(owner, rebate_amount_coin2);
                 coin::deposit(owner, rebate);
 
-                emit(ReferrerProfitExecuted<Collateral, Index, Direction> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
                     referrer: referrer,
                     amount: open_amount,
@@ -1186,7 +1194,7 @@ module perpetual::market {
                 
                 coin::deposit(owner, rebate);
 
-                 emit(ReferrerProfitExecuted<Collateral, Index, Direction> {
+                 emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
                     referrer: referrer,
                     amount: decrease_amount,
