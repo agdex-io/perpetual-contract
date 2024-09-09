@@ -560,6 +560,11 @@ module perpetual::pool {
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+
+        // Pool errors are no need to be catched
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.decrease_enabled, ERR_DECREASE_DISABLED);
+
         let index_price = agg_price::parse_pyth_feeder(
             &symbol.price_config,
             timestamp
