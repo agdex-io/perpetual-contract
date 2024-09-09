@@ -176,6 +176,11 @@ module perpetual::market {
         value: Decimal,
     }
 
+    #[event]
+    struct VaultStatusUpdated<phantom Collateral> has drop, copy, store {
+        enabled: bool
+    }
+
     // === Errors ===
     // common errors
     const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
@@ -511,6 +516,21 @@ module perpetual::market {
                 open_enabled,
                 decrease_enabled,
                 liquidate_enabled
+            },
+        );
+    }
+
+    public entry fun set_vault_status<Collateral>(
+        admin: &signer,
+        enabled: bool,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::set_vault_status<Collateral>(
+            admin, enabled
+        );
+        emit(
+            VaultStatusUpdated<Collateral> {
+                enabled
             },
         );
     }

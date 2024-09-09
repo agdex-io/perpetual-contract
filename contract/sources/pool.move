@@ -268,6 +268,15 @@ module perpetual::pool {
         symbol.liquidate_enabled = liquidate_enabled;
     }
 
+    public(friend) fun set_vault_status<Collateral>(
+        admin: &signer,
+        enabled: bool
+    ) acquires Vault {
+        let valut =
+            borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        valut.enabled = enabled;
+    }
+
     public(friend) fun deposit<Collateral>(
         user: &signer,
         rebase_model: &RebaseFeeModel,
