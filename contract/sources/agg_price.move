@@ -41,13 +41,6 @@ module perpetual::agg_price {
         }
     }
 
-    public(friend) fun update_agg_price_config_feeder(
-        config: &mut AggPriceConfig,
-        feeder: PriceIdentifier,
-    ) {
-        config.feeder = feeder;
-    }
-
     public fun from_price(config: &AggPriceConfig, price: Decimal): AggPrice {
         AggPrice { price, precision: config.precision }
     }
