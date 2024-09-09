@@ -589,7 +589,7 @@ module perpetual::market {
         vaas: vector<vector<u8>>
     ) acquires Market, WrappedPositionConfig, OrderRecord, PositionRecord {
         let user_account = signer::address_of(user);
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
@@ -740,7 +740,7 @@ module perpetual::market {
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
         let user_account = signer::address_of(user);
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
@@ -884,7 +884,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let timestamp = timestamp::now_seconds();
         let user_account = signer::address_of(user);
 
@@ -936,7 +936,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
@@ -976,7 +976,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(liquidator, vaas);
+        update_pyth_with_funder(liquidator, vaas);
         let liquidator_account = signer::address_of(liquidator);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1036,7 +1036,7 @@ module perpetual::market {
         order_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
-        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
+        update_pyth_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1142,7 +1142,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, OrderRecord, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
+        update_pyth_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1275,7 +1275,7 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, market_value,) = finalize_market_valuation();
 
@@ -1315,7 +1315,7 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, market_value,) =
             finalize_market_valuation();
@@ -1351,6 +1351,12 @@ module perpetual::market {
             },
         );
 
+    }
+
+    fun update_pyth_with_funder(user: &signer, vaas: vector<vector<u8>>) {
+        let pyth_fee = pyth::pyth::get_update_fee(&vaas);
+        let fee = coin::withdraw<AptosCoin>(user, pyth_fee);
+        pyth::pyth::update_price_feeds(vaas, fee);
     }
 
     #[view]
