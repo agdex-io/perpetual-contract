@@ -183,7 +183,6 @@ module perpetual::market {
 
     // === Errors ===
     // common errors
-    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
     const ERR_MARKET_ALREADY_LOCKED: u64 = 10002;
     // referral errors
     const ERR_ALREADY_HAS_REFERRAL: u64 = 10003;
@@ -192,12 +191,6 @@ module perpetual::market {
     const ERR_CAN_NOT_CREATE_ORDER: u64 = 10005;
     const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 10006;
     // deposit, withdraw and swap errors
-    const ERR_VAULT_ALREADY_HANDLED: u64 = 10007;
-    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 10008;
-    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 10009;
-    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10010;
-    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 10011;
-    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 10012;
     const ERR_SWAPPING_SAME_COINS: u64 = 10013;
 
     // register_referrer_code errors
