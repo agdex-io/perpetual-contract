@@ -1380,6 +1380,10 @@ module perpetual::market {
             type_info::type_name<Source>() != type_info::type_name<Destination>(),
             ERR_SWAPPING_SAME_COINS,
         );
+
+        aptos_framework::managed_coin::register<Source>(user);
+        aptos_framework::managed_coin::register<Destination>(user);
+
         let user_account = signer::address_of(user);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, _market_value,) =
