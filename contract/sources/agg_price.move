@@ -23,10 +23,10 @@ module perpetual::agg_price {
         feeder: PriceIdentifier,
     }
 
-    const ERR_INVALID_PRICE_FEEDER: u64 = 1;
-    const ERR_PRICE_STALED: u64 = 2;
-    const ERR_EXCEED_PRICE_CONFIDENCE: u64 = 3;
-    const ERR_INVALID_PRICE_VALUE: u64 = 4;
+    const ERR_INVALID_PRICE_FEEDER: u64 = 50001;
+    const ERR_PRICE_STALED: u64 = 50002;
+    const ERR_EXCEED_PRICE_CONFIDENCE: u64 = 50003;
+    const ERR_INVALID_PRICE_VALUE: u64 = 50004;
 
     public(friend) fun new_agg_price_config<CoinType>(
         max_interval: u64,

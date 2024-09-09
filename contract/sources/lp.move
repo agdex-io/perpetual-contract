@@ -8,16 +8,16 @@ module perpetual::lp {
 
     friend perpetual::market;
 
-    struct AGLP {}
+    struct LP {}
 
     struct MoneyCapabilities has key {
-        burn_cap: BurnCapability<AGLP>,
-        freeze_cap: FreezeCapability<AGLP>,
-        mint_cap: MintCapability<AGLP>,
+        burn_cap: BurnCapability<LP>,
+        freeze_cap: FreezeCapability<LP>,
+        mint_cap: MintCapability<LP>,
     }
 
     fun init_module(sender: &signer) {
-        let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<AGLP>(
+        let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<LP>(
             sender,
             string::utf8(b"AGLP"),
             string::utf8(b"AGLP"),
@@ -33,26 +33,26 @@ module perpetual::lp {
     }
 
     public(friend) fun mint_to(sender: &signer, amount: u64) acquires MoneyCapabilities {
-        if (!coin::is_account_registered<AGLP>(signer::address_of((sender)))) {
-            coin::register<AGLP>(sender);
+        if (!coin::is_account_registered<LP>(signer::address_of((sender)))) {
+            coin::register<LP>(sender);
         };
 
         let cap = borrow_global_mut<MoneyCapabilities>(@perpetual);
-        let lp_coin = coin::mint<AGLP>(amount, &cap.mint_cap);
+        let lp_coin = coin::mint<LP>(amount, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), lp_coin);
     }
 
     public(friend) fun burn(sender: &signer, amount: u64) acquires MoneyCapabilities {
-        if (!coin::is_account_registered<AGLP>(signer::address_of((sender)))) {
-            coin::register<AGLP>(sender);
+        if (!coin::is_account_registered<LP>(signer::address_of((sender)))) {
+            coin::register<LP>(sender);
         };
 
         let cap = borrow_global_mut<MoneyCapabilities>(@perpetual);
-        coin::burn_from<AGLP>(signer::address_of(sender), amount, &cap.burn_cap);
+        coin::burn_from<LP>(signer::address_of(sender), amount, &cap.burn_cap);
     }
 
     public fun get_supply(): u128 {
-        let op_supply = coin::supply<AGLP>();
+        let op_supply = coin::supply<LP>();
         option::destroy_some(op_supply)
     }
 

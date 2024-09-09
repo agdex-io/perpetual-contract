@@ -20,6 +20,11 @@ module perpetual::pool {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
+    use mock::PEPE::PEPE;
+    use mock::DOGE::DOGE;
+    use mock::AVAX::AVAX;
+    use mock::SOL::SOL;
+    use mock::BNB::BNB;
 
     friend perpetual::market;
     friend perpetual::orders;
@@ -152,24 +157,24 @@ module perpetual::pool {
     // === Errors ===
 
     // vault errors
-    const ERR_VAULT_DISABLED: u64 = 1;
-    const ERR_INSUFFICIENT_SUPPLY: u64 = 2;
-    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 3;
+    const ERR_VAULT_DISABLED: u64 = 20001;
+    const ERR_INSUFFICIENT_SUPPLY: u64 = 20002;
+    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 20003;
     // symbol errors
-    const ERR_COLLATERAL_NOT_SUPPORTED: u64 = 4;
-    const ERR_OPEN_DISABLED: u64 = 5;
-    const ERR_DECREASE_DISABLED: u64 = 6;
-    const ERR_LIQUIDATE_DISABLED: u64 = 7;
+    const ERR_COLLATERAL_NOT_SUPPORTED: u64 = 20004;
+    const ERR_OPEN_DISABLED: u64 = 20005;
+    const ERR_DECREASE_DISABLED: u64 = 20006;
+    const ERR_LIQUIDATE_DISABLED: u64 = 20007;
     // deposit, withdraw or swap errors
-    const ERR_INVALID_SWAP_AMOUNT: u64 = 8;
-    const ERR_INVALID_DEPOSIT_AMOUNT: u64 = 9;
-    const ERR_INVALID_BURN_AMOUNT: u64 = 10;
-    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 11;
-    const ERR_AMOUNT_OUT_TOO_LESS: u64 = 12;
+    const ERR_INVALID_SWAP_AMOUNT: u64 = 20008;
+    const ERR_INVALID_DEPOSIT_AMOUNT: u64 = 20009;
+    const ERR_INVALID_BURN_AMOUNT: u64 = 20010;
+    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 20011;
+    const ERR_AMOUNT_OUT_TOO_LESS: u64 = 20012;
     // model errors
-    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 13;
-    const ERR_MISMATCHED_FUNDING_FEE_MODEL: u64 = 14;
-    const ERR_INVALID_DIRECTION: u64 = 15;
+    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 20013;
+    // const ERR_MISMATCHED_FUNDING_FEE_MODEL: u64 = 14;
+    const ERR_INVALID_DIRECTION: u64 = 20015;
 
     public(friend) fun new_vault<Collateral>(
         account: &signer,
@@ -372,9 +377,8 @@ module perpetual::pool {
         );
         let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
         // compute and settle treasrury reserve amount
-        let treasury_reserve_value = decimal::mul_with_rate(withdraw_value, treasury_ratio);
+        let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
-        withdraw_value = decimal::add(withdraw_value, treasury_reserve_value);
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &vault.price_config,
@@ -399,7 +403,7 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
+        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
 
         (withdraw, fee_value)
@@ -784,7 +788,7 @@ module perpetual::pool {
             decimal::add(
                 decimal::sub(
                     decimal::sub(decrease_fee_value, rebate_value),
-                    reserving_fee_value
+                    treasury_reserve_value
                 ),
                 reserving_fee_value,
             ),
@@ -1194,6 +1198,16 @@ module perpetual::pool {
         total_value = valuate_symbol<BTC, SHORT>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<ETH, LONG>(timestamp, lp_supply_amount, total_value);
         total_value = valuate_symbol<ETH, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<DOGE, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<DOGE, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<SOL, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<SOL, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<PEPE, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<PEPE, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AVAX, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<AVAX, SHORT>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BNB, LONG>(timestamp, lp_supply_amount, total_value);
+        total_value = valuate_symbol<BNB, SHORT>(timestamp, lp_supply_amount, total_value);
 
         total_value
 

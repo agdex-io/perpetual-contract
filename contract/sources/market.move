@@ -1,5 +1,5 @@
 module perpetual::market {
-
+    use std::string;
     use std::signer;
     use std::option;
     use aptos_std::table::{Self, Table};
@@ -16,10 +16,16 @@ module perpetual::market {
     use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
+    // use aptos_framework::coin::Coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::emit;
     use perpetual::agg_price::AggPrice;
+
+    use mock::usdc::USDC;
+    use mock::usdt::USDT;
+    use mock::btc::BTC;
+    use mock::ETH::ETH;
 
     struct Market has key {
         vaults_locked: bool,
@@ -28,7 +34,9 @@ module perpetual::market {
         rebase_model: RebaseFeeModel,
         treasury_address: address,
         treasury_ratio: Rate,
-        referrals: Table<address, Referral>
+        referrals: Table<address, Referral>,                // referee --> referrer
+        referrer_codes: Table<string::String, address>,     // referrer_code --> referrer_code
+        referrers: Table<address, string::String>,          // referrer --> referrer_code
     }
 
     struct WrappedPositionConfig<phantom Index, phantom Direction> has key {
@@ -103,6 +111,11 @@ module perpetual::market {
         referrer: address,
         rebate_rate: Rate,
     }
+    #[event]
+    struct ReferrerCodeCreated has copy, drop, store {
+        referrer: address,
+        code: string::String,
+    }
 
     #[event]
     struct PositionClaimed<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {}
@@ -146,6 +159,15 @@ module perpetual::market {
     }
 
     #[event]
+    struct ReferrerProfitUpdated<phantom Collateral> has copy, drop, store {
+        user: address,
+        referrer: address,
+        amount: u64,
+        rebate_user_amount: u64,
+        rebate_referrer_amount: u64,
+    }
+
+    #[event]
     struct OrderCleared<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {}
 
     #[event]
@@ -156,29 +178,40 @@ module perpetual::market {
 
     // === Errors ===
     // common errors
-    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 1;
-    const ERR_MARKET_ALREADY_LOCKED: u64 = 2;
+    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
+    const ERR_MARKET_ALREADY_LOCKED: u64 = 10002;
     // referral errors
-    const ERR_ALREADY_HAS_REFERRAL: u64 = 3;
+    const ERR_ALREADY_HAS_REFERRAL: u64 = 10003;
     // perpetual trading errors
-    const ERR_INVALID_DIRECTION: u64 = 4;
-    const ERR_CAN_NOT_CREATE_ORDER: u64 = 5;
-    const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 6;
+    const ERR_INVALID_DIRECTION: u64 = 10004;
+    const ERR_CAN_NOT_CREATE_ORDER: u64 = 10005;
+    const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 10006;
     // deposit, withdraw and swap errors
-    const ERR_VAULT_ALREADY_HANDLED: u64 = 7;
-    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 8;
-    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 9;
-    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10;
-    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 11;
-    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 12;
-    const ERR_SWAPPING_SAME_COINS: u64 = 13;
+    const ERR_VAULT_ALREADY_HANDLED: u64 = 10007;
+    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 10008;
+    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 10009;
+    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10010;
+    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 10011;
+    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 10012;
+    const ERR_SWAPPING_SAME_COINS: u64 = 10013;
+
+    // register_referrer_code errors
+    const ERR_ALREADY_HAS_REFERRER_CODE: u64 = 10014;
+    const ERR_ALREADY_HAS_REGISTER_REFERRER: u64 = 10015;
+    const ERR_REFERRER_CODE_LENGTH_TOO_SHORT: u64 = 10016;
+    const ERR_REFERRER_CODE_LENGTH_TOO_LONG: u64 = 10017;
+
+    // add_referrer errors
+    const ERR_REFERRER_CODE_NOT_CREATED: u64 = 10018;
+    const ERR_REFERRER_NOT_REGISTER: u64 = 10019;
+
 
     fun init_module(admin: &signer,) {
         // create rebase fee model
         let rebase_rate = model::create_rebase_fee_model();
 
         //TODO: assign rebate rate here
-        let rebate_rate = rate::zero();
+        let rebate_rate = rate::from_percent(20);
         // move market resource to account
         let market = Market {
             vaults_locked: false,
@@ -187,7 +220,11 @@ module perpetual::market {
             rebase_model: rebase_rate,
             treasury_address: @perpetual,
             treasury_ratio: rate::from_raw(250_000_000_000_000_000),
-            referrals: table::new<address, Referral>()
+            referrals: table::new<address, Referral>(),
+            
+            referrers: table::new<address, string::String>(),
+            referrer_codes: table::new<string::String, address>(),
+
 
         };
         move_to(admin, market);
@@ -207,8 +244,8 @@ module perpetual::market {
         admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         // create reserving fee model
-        let model =
-            model::create_reserving_fee_model(decimal::from_raw(param_multiplier));
+        let model = model::create_reserving_fee_model(decimal::from_raw(param_multiplier));
+
         // add vault to market
         pool::new_vault<Collateral>(
             admin,
@@ -224,21 +261,111 @@ module perpetual::market {
         emit(VaultCreated<Collateral> {})
     }
 
-    public entry fun add_new_referral<L>(
-        referrer: &signer
+
+    public entry fun update_rebate_rate(admin: &signer, rebate_rate: u8) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+
+        market.rebate_model = rate::from_percent(rebate_rate);
+    }   
+
+    public entry fun update_rebate_rate_raw(admin: &signer, rebate_rate: u128) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+
+        market.rebate_model = rate::from_raw(rebate_rate);
+    }
+
+    public entry fun update_treasury_reserve_config(
+        admin: &signer,
+        treasury_address: address,
+        treasury_ratio: u128
+    ) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        market.treasury_address = treasury_address;
+        market.treasury_ratio = rate::from_raw(treasury_ratio);
+    }
+
+    public entry fun update_rebase_model(admin: &signer, rate_raw: u128, multiplier_raw: u256) acquires Market {
+        admin::check_permission(signer::address_of(admin));
+        let market = borrow_global_mut<Market>(@perpetual);
+        let base_rate = rate::from_raw(rate_raw);
+        let multiplier = decimal::from_raw(multiplier_raw);
+        model::update_rebase_fee_model(&mut market.rebase_model, base_rate, multiplier);
+    }
+
+    public entry fun register_referrer_code(referrer: &signer, code: string::String) acquires Market {
+        
+
+        aptos_framework::managed_coin::register<AptosCoin>(referrer);
+        aptos_framework::managed_coin::register<USDC>(referrer);
+        aptos_framework::managed_coin::register<USDT>(referrer);
+        aptos_framework::managed_coin::register<BTC>(referrer);
+        aptos_framework::managed_coin::register<ETH>(referrer);
+
+
+        let length = string::length(&code);
+        assert!(length >= 4, ERR_REFERRER_CODE_LENGTH_TOO_SHORT);
+        assert!(length <= 10, ERR_REFERRER_CODE_LENGTH_TOO_LONG);
+
+        let market = borrow_global_mut<Market>(@perpetual);
+
+
+        assert!(
+            !table::contains(&market.referrer_codes, code),
+            ERR_ALREADY_HAS_REFERRER_CODE,
+        );
+
+        assert!(
+            !table::contains(&market.referrers, signer::address_of(referrer)),
+            ERR_ALREADY_HAS_REGISTER_REFERRER,
+        );
+
+        table::add(&mut market.referrer_codes, 
+            code, 
+            signer::address_of(referrer)
+        );
+
+        table::add(&mut market.referrers, 
+            signer::address_of(referrer),
+            code
+        );
+
+        emit(ReferrerCodeCreated {
+            referrer: signer::address_of(referrer),
+            code: code,
+        });
+    }
+    
+    public entry fun add_new_referral(
+        user: &signer,
+        code: string::String
     ) acquires Market {
 
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
-            !table::contains(&market.referrals, signer::address_of(referrer)),
+            !table::contains(&market.referrals, signer::address_of(user)),
             ERR_ALREADY_HAS_REFERRAL,
         );
 
-        let referral = referral::new_referral( signer::address_of(referrer), market.rebate_model);
-        table::add(&mut market.referrals,  signer::address_of(referrer), referral);
+        assert!(
+            table::contains(&market.referrer_codes, code),
+            ERR_REFERRER_CODE_NOT_CREATED,
+        );
+
+        let referrer = table::borrow(&market.referrer_codes, code);
+
+        assert!(
+            table::contains(&market.referrers, *referrer),
+            ERR_REFERRER_NOT_REGISTER,
+        );
+
+        let referral = referral::new_referral(*referrer, market.rebate_model);
+        table::add(&mut market.referrals, signer::address_of(user), referral);
 
         emit(ReferralAdded {
-            referrer: signer::address_of(referrer),
+            referrer: *referrer,
             rebate_rate: market.rebate_model,
         });
     }
@@ -340,8 +467,7 @@ module perpetual::market {
                 admin,
                 PositionRecord<Collateral, Index, Direction> {
                     creation_num: 0,
-                    positions: table::new<PositionId<Collateral, Index, Direction>, Position<
-                            Collateral>>()
+                    positions: table::new<PositionId<Collateral, Index, Direction>, Position<Collateral>>()
                 },
             )
         };
@@ -386,20 +512,6 @@ module perpetual::market {
                 decrease_enabled,
                 liquidate_enabled
             },
-        );
-    }
-
-    public entry fun update_rebase_model(
-        admin: &signer,
-        rebase_rate: u128,
-        multiplier: u256
-    ) acquires Market {
-        admin::check_permission(signer::address_of(admin));
-        let market = borrow_global_mut<Market>(@perpetual);
-        model::update_rebase_fee_model(
-            &mut market.rebase_model,
-            rate::from_raw(rebase_rate),
-            decimal::from_raw(multiplier)
         );
     }
 
@@ -508,6 +620,7 @@ module perpetual::market {
                     coin::withdraw<Collateral>(user, collateral_amount),
                     coin::withdraw<Fee>(user, fee_amount),
                 );
+                
             // add order into record
             let order_record =
                 borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(
@@ -525,10 +638,10 @@ module perpetual::market {
             emit(OrderCreated<Collateral, Index, Direction> { user_account });
 
         } else {
-            let (rebate_rate, referrer) =
-                get_referral_data(&market.referrals, user_account);
-            let (code, collateral, result, _) =
-                pool::open_position<Collateral, Index, Direction>(
+            
+            let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
+
+            let (code, collateral, result, _) = pool::open_position<Collateral, Index, Direction>(
                     &position_config.inner,
                     coin::withdraw<Collateral>(user, collateral_amount),
                     collateral_price_threshold,
@@ -541,21 +654,17 @@ module perpetual::market {
                     market.treasury_address,
                     market.treasury_ratio
                 );
+                
+
             coin::deposit(user_account, collateral);
             // should panic when the owner execute the order
             assert!(code == 0, code);
             //coin::destroy_zero(collateral);
 
-            let (position, rebate, _event) =
-                pool::unwrap_open_position_result<Collateral>(
-                    option::destroy_some(result)
-                );
+            let (position, rebate, _event) = pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
 
             // add position into record
-            let position_record =
-                borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(
-                    @perpetual
-                );
+            let position_record = borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
             table::add(
                 &mut position_record.positions,
                 PositionId<Collateral, Index, Direction> {
@@ -567,7 +676,30 @@ module perpetual::market {
             position_record.creation_num = position_record.creation_num + 1;
 
             if (referrer != @0x0) {
-                coin::deposit(referrer, rebate);
+                // coin::deposit(referrer, rebate);
+                let rebate_amount = coin::value(&rebate);
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
+
+                let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
+                let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
+
+                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+
+                coin::deposit(referrer, rebate_amount_coin1);
+                coin::deposit(user_account, rebate_amount_coin2);
+
+                coin::deposit(user_account, rebate);
+
+                emit(ReferrerProfitUpdated<Collateral> {
+                    user: user_account,
+                    referrer: referrer,
+                    amount: open_amount,
+                    rebate_user_amount: decimal::floor_u64(rebate_amount_2),
+                    rebate_referrer_amount: decimal::floor_u64(rebate_amount_1)
+                });
+
             } else {
                 coin::deposit(user_account, rebate);
             };
@@ -671,8 +803,7 @@ module perpetual::market {
                 position_id,
             );
 
-            let (rebate_rate, referrer) =
-                get_referral_data(&market.referrals, user_account);
+            let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
             let (code, result, _) =
                 pool::decrease_position<Collateral, Index, Direction>(
                     position,
@@ -695,7 +826,30 @@ module perpetual::market {
             coin::deposit<Collateral>(user_account, to_trader);
 
             if (referrer != @0x0) {
-                coin::deposit(referrer, rebate);
+
+                let rebate_amount = coin::value(&rebate);
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
+                let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
+
+                let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
+                let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
+
+                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+
+                coin::deposit(referrer, rebate_amount_coin1);
+                coin::deposit(user_account, rebate_amount_coin2);
+
+                coin::deposit(user_account, rebate);
+
+                emit(ReferrerProfitUpdated<Collateral> {
+                    user: user_account,
+                    referrer: referrer,
+                    amount: decrease_amount,
+                    rebate_user_amount: decimal::floor_u64(rebate_amount_2),
+                    rebate_referrer_amount: decimal::floor_u64(rebate_amount_1)
+                });
+
             } else {
                 coin::deposit(user_account, rebate);
             };
@@ -878,6 +1032,8 @@ module perpetual::market {
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::borrow_mut(&mut order_record.open_orders, order_id);
 
+        
+        let open_amount = orders::open_amount_of(order);
         let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
         let (code, collateral, result, failure, fee) =
             orders::execute_open_position_order<Collateral, Index, Direction, Fee>(
@@ -908,10 +1064,31 @@ module perpetual::market {
             );
             position_record.creation_num = position_record.creation_num + 1;
 
-            if (referrer == @0x0) {
-                coin::deposit(executor_account, rebate);
+            if (referrer != @0x0) {
+                let rebate_amount = coin::value(&rebate);
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
+
+                let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
+                let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
+
+                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+
+                coin::deposit(referrer, rebate_amount_coin1);
+                coin::deposit(owner, rebate_amount_coin2);
+                coin::deposit(owner, rebate);
+
+                emit(ReferrerProfitUpdated<Collateral> {
+                    user: owner,
+                    referrer: referrer,
+                    amount: open_amount,
+                    rebate_user_amount: decimal::floor_u64(rebate_amount_2),
+                    rebate_referrer_amount: decimal::floor_u64(rebate_amount_1)
+                });
+
             } else {
-                coin::deposit(referrer, rebate);
+                coin::deposit(owner, rebate);
             };
 
             emit(
@@ -960,7 +1137,7 @@ module perpetual::market {
         let order_record =
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::borrow_mut(&mut order_record.decrease_orders, order_id);
-
+        let decrease_amount = orders::decrease_open_amount_of(order);
         let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
         let position_id = PositionId<Collateral, Index, Direction> {
             id: position_num,
@@ -986,7 +1163,28 @@ module perpetual::market {
 
             coin::deposit(owner, to_trader);
             if (referrer != @0x0) {
-                coin::deposit(referrer, rebate);
+                let rebate_amount = coin::value(&rebate);
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
+
+                let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
+                let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
+
+                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+
+                coin::deposit(referrer, rebate_amount_coin1);
+                coin::deposit(owner, rebate_amount_coin2);
+                
+                coin::deposit(owner, rebate);
+
+                 emit(ReferrerProfitUpdated<Collateral> {
+                    user: owner,
+                    referrer: referrer,
+                    amount: decrease_amount,
+                    rebate_user_amount: decimal::floor_u64(rebate_amount_2),
+                    rebate_referrer_amount: decimal::floor_u64(rebate_amount_1)
+                });
 
             } else {
                 coin::deposit(owner, rebate);
@@ -1298,13 +1496,39 @@ module perpetual::market {
     }
 
     fun get_referral_data(
-        referrals: &Table<address, Referral>, owner: address
+        referrals: &Table<address, Referral>, 
+        owner: address
     ): (Rate, address) {
         if (table::contains(referrals, owner)) {
             let referral = table::borrow(referrals, owner);
-            (referral::get_rebate_rate(referral), referral::get_referrer(referral))
+            (
+                referral::get_rebate_rate(referral), 
+                referral::get_referrer(referral)
+            )
         } else {
             (rate::zero(), @0x0)
         }
+    }
+
+     #[view]
+    public fun get_referrer(referee: address):address acquires Market {
+        let market = borrow_global<Market>(@perpetual);
+        let referral = table::borrow(&market.referrals, referee);
+
+        referral::get_referrer(referral)
+    }
+
+    #[view]
+    public fun get_referrer_code(referrer: address):string::String acquires Market {
+        let market = borrow_global<Market>(@perpetual);
+        let code = table::borrow(&market.referrers, referrer);
+        *code
+    }
+
+    #[view]
+    public fun check_code(code: string::String):address acquires Market{
+        let market = borrow_global<Market>(@perpetual);
+        let referrer = table::borrow(&market.referrer_codes, code);
+        *referrer
     }
 }

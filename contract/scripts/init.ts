@@ -7,9 +7,7 @@ import {
     Network,
 } from '@aptos-labs/ts-sdk'
 
-
-
-export const MODULE_ADDRESS = "0x97f3eaeeaadaee34d0274ff0ef9cf572b04991db7598c57bd372bb2f555bd787"
+export const MODULE_ADDRESS = "0x74bd2f63f61199da6b79f3bf478cea1ae7543dbf1c6bff1176ab9ff86aa271e1"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0xfa78899981b78f231628501583779f99565b49cbec9bbf84f9a04465ba17ca55"
 
@@ -45,7 +43,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d'
+const PRIVATE_KEY = '0x133487887937d76a6be888daa30247d04aa040b56fcb6b79b36bb04144d89c22'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -407,8 +405,8 @@ async function executeAddCollateralToSymbol() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    // await executeAddCollateralToSymbol()
-    await replaceVaultPriceFeeder()
+    await executeAddCollateralToSymbol()
+    // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
 }
 

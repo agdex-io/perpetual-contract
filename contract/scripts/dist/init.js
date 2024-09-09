@@ -38,7 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatAptosDecimal = exports.DOGE_FEEDER_ADDRESS = exports.PEPE_FEEDER_ADDRESS = exports.AVAX_FEEDER_ADDRESS = exports.SOL_FEEDER_ADDRESS = exports.BNB_FEEDER_ADDRESS = exports.ETH_FEEDER_ADDRESS = exports.BTC_FEEDER_ADDRESS = exports.USDC_FEEDER_ADDRESS = exports.USDT_FEEDER_ADDRESS = exports.APT_FEEDER_ADDRESS = exports.COIN_ADDRESS = exports.FEERDER_ADDRESS = exports.MODULE_ADDRESS = void 0;
 var ts_sdk_1 = require("@aptos-labs/ts-sdk");
-exports.MODULE_ADDRESS = "0x97f3eaeeaadaee34d0274ff0ef9cf572b04991db7598c57bd372bb2f555bd787";
+exports.MODULE_ADDRESS = "0x74bd2f63f61199da6b79f3bf478cea1ae7543dbf1c6bff1176ab9ff86aa271e1";
 exports.FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387";
 exports.COIN_ADDRESS = "0xfa78899981b78f231628501583779f99565b49cbec9bbf84f9a04465ba17ca55";
 exports.APT_FEEDER_ADDRESS = "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e";
@@ -60,7 +60,7 @@ var aptosConfig = new ts_sdk_1.AptosConfig({ fullnode: "https://aptos.testnet.su
 var aptos = new ts_sdk_1.Aptos(aptosConfig);
 var moduleAddress = exports.MODULE_ADDRESS;
 var coinAddress = exports.COIN_ADDRESS;
-var PRIVATE_KEY = '0x1eb195d09146082ad2271dabcc416ec057527a0c4415098be67cf9bf6849143d';
+var PRIVATE_KEY = '0x133487887937d76a6be888daa30247d04aa040b56fcb6b79b36bb04144d89c22';
 var singer = ts_sdk_1.Account.fromPrivateKey({
     privateKey: new ts_sdk_1.Ed25519PrivateKey(PRIVATE_KEY),
 });
@@ -89,42 +89,46 @@ var SIDE_SHORT = "".concat(moduleAddress, "::pool::SHORT");
 var FEE_ADDRESS = ts_sdk_1.APTOS_COIN;
 //list
 var VAULT_LIST = [
-    {
-        name: 'APT',
-        vaultType: APTOS_VAULT_ADDRESS,
-        weight: (0, exports.formatAptosDecimal)(0.05, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.APT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'USDC',
-        vaultType: USDC_VAULT_ADDRESS,
-        weight: (0, exports.formatAptosDecimal)(0.3, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.USDC_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'USDT',
-        vaultType: USDT_VAULT_ADDRESS,
-        weight: (0, exports.formatAptosDecimal)(0.3, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.USDT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'BTC',
-        vaultType: BTC_VAULT_ADDRESS,
-        weight: (0, exports.formatAptosDecimal)(0.2, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.BTC_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
+    // {
+    //     name: 'APT',
+    //     vaultType: APTOS_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.05, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         APT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'USDC',
+    //     vaultType: USDC_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.3, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         USDC_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'USDT',
+    //     vaultType: USDT_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.3, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         USDT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'BTC',
+    //     vaultType: BTC_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.2, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         BTC_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
     {
         name: 'ETH',
         vaultType: ETH_VAULT_ADDRESS,
@@ -187,91 +191,96 @@ var SYMBOL_LIST = [
         liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
         liquidation_bonus: '10000000000000000',
     },
-    {
-        name: 'SOL',
-        symbolType: SOL_SYMBOL_ADDRESS,
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.SOL_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-        param_max: '7500000000000000',
-        max_leverage: 100,
-        min_holding_duration: 20,
-        max_reserved_multiplier: 20,
-        min_collateral_value: (0, exports.formatAptosDecimal)(5, 18),
-        open_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        decrease_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
-        liquidation_bonus: '10000000000000000',
-    },
-    {
-        name: 'AVAX',
-        symbolType: AVAX_SYMBOL_ADDRESS,
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.AVAX_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-        param_max: '7500000000000000',
-        max_leverage: 100,
-        min_holding_duration: 20,
-        max_reserved_multiplier: 20,
-        min_collateral_value: (0, exports.formatAptosDecimal)(5, 18),
-        open_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        decrease_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
-        liquidation_bonus: '10000000000000000',
-    },
-    {
-        name: 'APT',
-        symbolType: APTOS_SYMBOL_ADDRESS,
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.APT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-        param_max: '7500000000000000',
-        max_leverage: 100,
-        min_holding_duration: 20,
-        max_reserved_multiplier: 20,
-        min_collateral_value: (0, exports.formatAptosDecimal)(5, 18),
-        open_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        decrease_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
-        liquidation_bonus: '10000000000000000',
-    },
-    {
-        name: 'DOGE',
-        symbolType: DOGE_SYMBOL_ADDRESS,
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.DOGE_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-        param_max: '7500000000000000',
-        max_leverage: 100,
-        min_holding_duration: 20,
-        max_reserved_multiplier: 20,
-        min_collateral_value: (0, exports.formatAptosDecimal)(5, 18),
-        open_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        decrease_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
-        liquidation_bonus: '10000000000000000',
-    },
-    {
-        name: 'PEPE',
-        symbolType: PEPE_SYMBOL_ADDRESS,
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder: exports.PEPE_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-        param_max: '7500000000000000',
-        max_leverage: 100,
-        min_holding_duration: 20,
-        max_reserved_multiplier: 20,
-        min_collateral_value: (0, exports.formatAptosDecimal)(5, 18),
-        open_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        decrease_fee_bps: (0, exports.formatAptosDecimal)(0.001, 18),
-        liquidation_threshold: (0, exports.formatAptosDecimal)(0.98, 18),
-        liquidation_bonus: '10000000000000000',
-    },
+    // {
+    //     name: 'SOL',
+    //     symbolType: SOL_SYMBOL_ADDRESS,
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         SOL_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    //     param_max: '7500000000000000',
+    //     max_leverage: 100,
+    //     min_holding_duration: 20,
+    //     max_reserved_multiplier: 20,
+    //     min_collateral_value: formatAptosDecimal(5, 18),
+    //     open_fee_bps: formatAptosDecimal(0.001, 18),
+    //     decrease_fee_bps: formatAptosDecimal(0.001, 18),
+    //     liquidation_threshold: formatAptosDecimal(0.98, 18),
+    //     liquidation_bonus: '10000000000000000',
+    // },
+    // {
+    //     name: 'AVAX',
+    //     symbolType: AVAX_SYMBOL_ADDRESS,
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         AVAX_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    //     param_max: '7500000000000000',
+    //     max_leverage: 100,
+    //     min_holding_duration: 20,
+    //     max_reserved_multiplier: 20,
+    //     min_collateral_value: formatAptosDecimal(5, 18),
+    //     open_fee_bps: formatAptosDecimal(0.001, 18),
+    //     decrease_fee_bps: formatAptosDecimal(0.001, 18),
+    //     liquidation_threshold: formatAptosDecimal(0.98, 18),
+    //     liquidation_bonus: '10000000000000000',
+    // },
+    // {
+    //     name: 'APT',
+    //     symbolType: APTOS_SYMBOL_ADDRESS,
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         APT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    //     param_max: '7500000000000000',
+    //     max_leverage: 100,
+    //     min_holding_duration: 20,
+    //     max_reserved_multiplier: 20,
+    //     min_collateral_value: formatAptosDecimal(5, 18),
+    //     open_fee_bps: formatAptosDecimal(0.001, 18),
+    //     decrease_fee_bps: formatAptosDecimal(0.001, 18),
+    //     liquidation_threshold: formatAptosDecimal(0.98, 18),
+    //     liquidation_bonus: '10000000000000000',
+    // },
+    // {
+    //     name: 'DOGE',
+    //     symbolType: DOGE_SYMBOL_ADDRESS,
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         DOGE_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    //     param_max: '7500000000000000',
+    //     max_leverage: 100,
+    //     min_holding_duration: 20,
+    //     max_reserved_multiplier: 20,
+    //     min_collateral_value: formatAptosDecimal(5, 18),
+    //     open_fee_bps: formatAptosDecimal(0.001, 18),
+    //     decrease_fee_bps: formatAptosDecimal(0.001, 18),
+    //     liquidation_threshold: formatAptosDecimal(0.98, 18),
+    //     liquidation_bonus: '10000000000000000',
+    // },
+    // {
+    //     name: 'PEPE',
+    //     symbolType: PEPE_SYMBOL_ADDRESS,
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         PEPE_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    //     param_max: '7500000000000000',
+    //     max_leverage: 100,
+    //     min_holding_duration: 20,
+    //     max_reserved_multiplier: 20,
+    //     min_collateral_value: formatAptosDecimal(5, 18),
+    //     open_fee_bps: formatAptosDecimal(0.001, 18),
+    //     decrease_fee_bps: formatAptosDecimal(0.001, 18),
+    //     liquidation_threshold: formatAptosDecimal(0.98, 18),
+    //     liquidation_bonus: '10000000000000000',
+    // },
 ];
 var DIRECTION_LIST = [SIDE_LONG, SIDE_SHORT];
 function hexStringToUint8Array(hexString) {
@@ -472,14 +481,13 @@ function main() {
                 case 0: 
                 // await executeAddNewVault()
                 // await executeAddNewSymbol()
-                // await executeAddCollateralToSymbol()
-                return [4 /*yield*/, replaceVaultPriceFeeder()
+                return [4 /*yield*/, executeAddCollateralToSymbol()
+                    // await replaceVaultPriceFeeder()
                     // await replaceSymbolPriceFeeder()
                 ];
                 case 1:
                     // await executeAddNewVault()
                     // await executeAddNewSymbol()
-                    // await executeAddCollateralToSymbol()
                     _a.sent();
                     return [2 /*return*/];
             }
