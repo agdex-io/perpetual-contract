@@ -34,6 +34,7 @@ module perpetual::market {
         rebase_model: RebaseFeeModel,
         treasury_address: address,
         treasury_ratio: Rate,
+        order_min_fee: u64,
         referrals: Table<address, Referral>,                // referee --> referrer
         referrer_codes: Table<string::String, address>,     // referrer_code --> referrer_code
         referrers: Table<address, string::String>,          // referrer --> referrer_code
@@ -202,6 +203,7 @@ module perpetual::market {
     // add_referrer errors
     const ERR_REFERRER_CODE_NOT_CREATED: u64 = 10018;
     const ERR_REFERRER_NOT_REGISTER: u64 = 10019;
+    const ERR_ORDER_FEE_INSUFFICIENT: u64 = 10020;
 
 
     fun init_module(admin: &signer,) {
@@ -218,6 +220,7 @@ module perpetual::market {
             rebase_model: rebase_rate,
             treasury_address: @perpetual,
             treasury_ratio: rate::from_raw(250_000_000_000_000_000),
+            order_min_fee: 1000000,
             referrals: table::new<address, Referral>(),
             
             referrers: table::new<address, string::String>(),
@@ -587,6 +590,7 @@ module perpetual::market {
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
+        assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
@@ -738,6 +742,7 @@ module perpetual::market {
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
+        assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
