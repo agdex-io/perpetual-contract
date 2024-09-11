@@ -2,6 +2,7 @@ module perpetual::market {
     use std::string;
     use std::signer;
     use std::option;
+    use std::vector;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
     use perpetual::pool::{Self, LONG, SHORT};
@@ -204,6 +205,7 @@ module perpetual::market {
     const ERR_REFERRER_CODE_NOT_CREATED: u64 = 10018;
     const ERR_REFERRER_NOT_REGISTER: u64 = 10019;
     const ERR_ORDER_FEE_INSUFFICIENT: u64 = 10020;
+    const EVAAS_EMPTY: u64 = 10021;
 
 
     fun init_module(admin: &signer,) {
@@ -1352,6 +1354,7 @@ module perpetual::market {
     }
 
     fun update_pyth_with_funder(user: &signer, vaas: vector<vector<u8>>) {
+        assert!(vector::length(&vaas) > 0 && vector::length(vector::borrow(&vaas, 0)) > 0, EVAAS_EMPTY);
         let pyth_fee = pyth::pyth::get_update_fee(&vaas);
         let fee = coin::withdraw<AptosCoin>(user, pyth_fee);
         pyth::pyth::update_price_feeds(vaas, fee);
