@@ -1399,7 +1399,7 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         assert!(
             type_info::type_name<Source>() != type_info::type_name<Destination>(),
             ERR_SWAPPING_SAME_COINS,
