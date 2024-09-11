@@ -9,7 +9,7 @@ import {
 import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0x565904b9a3195938d5d94b892cfa384a4fa5489b7ea5315169226cfec158b44d"
+export const MODULE_ADDRESS = "0x34b01c963c348d1d1369ef07fbf4c3f390186007b3e21917d6e36c7342b4b080"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
 
@@ -45,7 +45,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0xe52ddd156f701b8b51f65a88bd51d3646f88b0fc656bc1b4903acfd7f15ff6cf'
+const PRIVATE_KEY = '0x774e2bec80edee0e7be80ac2ea18b2e79eea18204ffcb08f2cd14f8704d73fec'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -410,7 +410,7 @@ async function executeAddCollateralToSymbol() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    // await executeAddCollateralToSymbol()
+    await executeAddCollateralToSymbol()
     // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
 }

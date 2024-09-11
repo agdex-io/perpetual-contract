@@ -72,8 +72,11 @@ module perpetual::pool {
     #[event]
     struct PoolWithdraw has copy, drop, store {
         burn_amount: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
         min_amount_out: u64,
         lp_supply_amount: Decimal,
+        withdraw_value: Decimal,
         withdraw_amount: u64,
         treasury_reserve_value: Decimal,
         treasury_reserve_amount: u64,
@@ -437,9 +440,8 @@ module perpetual::pool {
         );
         let fee_value = decimal::mul_with_rate(withdraw_value, fee_rate);
         // compute and settle treasrury reserve amount
-        let treasury_reserve_value = decimal::mul_with_rate(withdraw_value, treasury_ratio);
+        let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
-        withdraw_value = decimal::add(withdraw_value, treasury_reserve_value);
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &vault.price_config,
@@ -464,13 +466,16 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut withdraw, treasury_reserve_amount);
+        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
 
         emit(PoolWithdraw {
             burn_amount,
+            market_value,
+            vault_value,
             min_amount_out,
             lp_supply_amount,
+            withdraw_value,
             withdraw_amount,
             treasury_reserve_value,
             treasury_reserve_amount,

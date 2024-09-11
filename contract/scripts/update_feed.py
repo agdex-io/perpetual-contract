@@ -25,6 +25,7 @@ class MarketClient(RestClient):
     async def update_feed(self, sender: Account, vaas) -> str:
         
         res = requests.get("https://hermes-beta.pyth.network/v2/updates/price/latest?ids%5B%5D=0x44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e")
+        print(res.json())
         vas_hex = res.json()["binary"]["data"][0]
         vas_bytes_1 = list(bytes.fromhex(vas_hex))
 
