@@ -123,6 +123,20 @@ module perpetual::positions {
         to_trader: u64,
     }
 
+    #[event]
+    struct PositionLiquidation<phantom Collateral> has copy, drop, store {
+        bonus_amount: u64,
+        collateral_amount: u64,
+        position_amount: u64,
+        reserved_amount: u64,
+        position_size: Decimal,
+        reserving_fee_amount: Decimal,
+        reserving_fee_value: Decimal,
+        funding_fee_value: SDecimal,
+        to_valut: u64,
+        to_liquidator: u64,
+    }
+
     public(friend) fun new_position_config(
         max_leverage: u64,
         min_holding_duration: u64,
@@ -627,6 +641,18 @@ module perpetual::positions {
         let to_liquidator = coin::extract(&mut position.collateral, bonus_amount);
         let to_vault = coin::extract_all(&mut position.reserved);
         coin::merge(&mut to_vault, coin::extract_all(&mut position.collateral));
+        emit(PositionLiquidation<Collateral>{
+            bonus_amount,
+            collateral_amount,
+            position_amount,
+            reserved_amount,
+            position_size,
+            reserving_fee_amount,
+            reserving_fee_value,
+            funding_fee_value,
+            to_valut: coin::value(&to_vault),
+            to_liquidator: coin::value(&to_liquidator),
+        });
 
         (
             bonus_amount,

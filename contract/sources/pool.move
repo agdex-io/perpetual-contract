@@ -39,7 +39,8 @@ module perpetual::pool {
         collateral_price: AggPrice,
         index_price: AggPrice,
         treasury_reserve_amount: u64,
-        rebate_amount: u64
+        rebate_amount: u64,
+        open_fee_amount: u64
     }
 
     #[event]
@@ -83,6 +84,12 @@ module perpetual::pool {
         fee_rate: Rate,
         fee_value: Decimal,
         collateral_price: AggPrice,
+    }
+
+    #[event]
+    struct PoolLiquidation has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice
     }
 
     struct Vault<phantom Collateral> has key, store {
@@ -732,7 +739,8 @@ module perpetual::pool {
             index_price,
             collateral_price,
             treasury_reserve_amount,
-            rebate_amount
+            rebate_amount,
+            open_fee_amount
         });
         (code, collateral, option::some(result), option::none())
     }
@@ -1107,6 +1115,10 @@ module perpetual::pool {
             loss_amount: trader_loss_amount,
             liquidator_bonus_amount,
         };
+        emit(PoolLiquidation{
+            collateral_price,
+            index_price
+        });
 
         (to_liquidator, event)
     }
