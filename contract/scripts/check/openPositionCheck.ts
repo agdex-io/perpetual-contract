@@ -41,50 +41,51 @@ function sdecimalToBigNumber(a) {
 
 export async function check(hash: HexInput) {
     
-    // const response = await aptos.getTransactionByHash({transactionHash: hash});
-    // const rateChangedEvent = response['events'].filter((e) => e['type'].indexOf("pool::RateChanged")>=0);
-    // const poolOpenPositionEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolOpenPosition")>=0);
-    // const positionOpenPositionEvent = response['events'].filter((e) => e['type'].indexOf("position::PositioOpenPosition")>=0);
+    const response = await aptos.getTransactionByHash({transactionHash: hash});
+    const rateChangedEvent = response['events'].filter((e) => e['type'].indexOf("pool::RateChanged")>=0);
+    const poolOpenPositionEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolOpenPosition")>=0);
+    const positionOpenPositionEvent = response['events'].filter((e) => e['type'].indexOf("positions::PositionOpenPosition")>=0);
+    console.log(rateChangedEvent);
+    console.log(poolOpenPositionEvent);
+    console.log(positionOpenPositionEvent);
 
     // open fee rate
     // open fee value
     // treasury reserve amount
     // rebate fee value
-    // 
 
-    // decrease fee value
+    // const positionDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("positions::PositionDecreasePosition")>=0);
+    // const positionSnapshot = response['events'].filter((e) => e['type'].indexOf("positions::PositionSnapshot")>=0);
+    const openAmount = response['payload']['arguments'][1];
+    // const positionAmountPre = positionSnapshot[0]['data']['position_amount']; 
+    // const positionReservedAmount = positionSnapshot[0]['data']['reserved_amount'];
+    // const positionCollateralAmount = positionSnapshot[0]['data']['reserved_amount'];
+    // const positionSizePre = positionSnapshot[0]['data']['position_size']['value']; 
+    const collateralPrice = poolOpenPositionEvent[0]['data']['collateral_price'];
+    const indexPrice = poolOpenPositionEvent[0]['data']['index_price'];
+    // const fundingFeeRateCur = rateChangedEvent[0]['data']['acc_funding_rate'];
+    // const reservingFeeRateCur = rateChangedEvent[0]['data']['acc_reserving_rate'];
+    // const fundingFeeRatePre = positionSnapshot[0]['data']['last_funding_rate']
+    // const reservingFeeRatePre = positionSnapshot[0]['data']['last_reserving_rate']
+    // const fundingFeePre = positionSnapshot[0]['data']['funding_fee_value'];
+    // const reservingFeePre = positionSnapshot[0]['data']['reserving_fee_amount']['value'];
+    // const settledAmountOnchain = positionDecreasePositionEvent[0]['data']['settled_amount'];
+    const openPositionFeeAmountOnchain = poolOpenPositionEvent[0]['data']['open_fee_amount'];
+    const treasuryReserveAmountOnchain = poolOpenPositionEvent[0]['data']['treasury_reserve_amount'];
+    const rebateFeeAmountOnchain = poolOpenPositionEvent[0]['data']['rebate_amount'];
 
-    const response = await aptos.getTransactionByHash({transactionHash: hash});
-    const rateChangedEvent = response['events'].filter((e) => e['type'].indexOf("pool::RateChanged")>=0);
-    const poolDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolDecreasePosition")>=0);
-
-    const positionDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("positions::PositionDecreasePosition")>=0);
-    const positionSnapshot = response['events'].filter((e) => e['type'].indexOf("positions::PositionSnapshot")>=0);
-    const decreaseAmount = response['payload']['arguments'][3];
-    const positionAmountPre = positionSnapshot[0]['data']['position_amount']; 
-    const positionReservedAmount = positionSnapshot[0]['data']['reserved_amount'];
-    const positionCollateralAmount = positionSnapshot[0]['data']['reserved_amount'];
-    const positionSizePre = positionSnapshot[0]['data']['position_size']['value']; 
-    const collateralPrice = poolDecreasePositionEvent[0]['data']['collateral_price'];
-    const indexPrice = poolDecreasePositionEvent[0]['data']['index_price'];
-    const fundingFeeRateCur = rateChangedEvent[0]['data']['acc_funding_rate'];
-    const reservingFeeRateCur = rateChangedEvent[0]['data']['acc_reserving_rate'];
-    const fundingFeeRatePre = positionSnapshot[0]['data']['last_funding_rate']
-    const reservingFeeRatePre = positionSnapshot[0]['data']['last_reserving_rate']
-    const fundingFeePre = positionSnapshot[0]['data']['funding_fee_value'];
-    const reservingFeePre = positionSnapshot[0]['data']['reserving_fee_amount']['value'];
-    const settledAmountOnchain = positionDecreasePositionEvent[0]['data']['settled_amount'];
-    const openPositionFeeValueOnchain = positionDecreasePositionEvent[0]['data']['decrease_fee_value']['value'];
-    const treasuryReserveAmountOnchain = poolDecreasePositionEvent[0]['data']['treasury_reserve_amount'];
-    const rebateFeeAmountOnchain = poolDecreasePositionEvent[0]['data']['rebate_amount'];
-
-    // openPositionSize = decreaseAmount / positionAmount * positionSize
-    const openPositionSize = BigNumber(Number(decreaseAmount)).multipliedBy(BigNumber(Number(positionSizePre))).div(BigNumber(Number(positionAmountPre)));
+    // openPositionSize = openAmount * indexPrice
     // const openPositionFeeValue = openPositionSize * decreaseFeeRate
-    let openPositionFeeValue = openPositionSize.multipliedBy(FeeInfo['openPositionFeeInfo']).div(BigNumber(Math.pow(10, 18)));
-    if (openPositionFeeValue.toString() != BigNumber(openPositionFeeValueOnchain).toString()) {
-        const delta = openPositionFeeValue.minus(BigNumber(openPositionFeeValueOnchain));
-        throw new Error("decrease fee value error: " + delta.toString());
+    let openPositionSize = BigNumber(Number(openAmount))
+            .multipliedBy(BigNumber(indexPrice['price']['value'])).dividedBy(BigNumber(Number(indexPrice['precision'])));
+            console.log(openPositionSize);
+    let openPositionFeeValue = openPositionSize.multipliedBy(BigNumber(FeeInfo['openPositionFeeInfo'])).dividedBy(Math.pow(10, 18));
+    let openPositionFeeAmount = openPositionFeeValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(Number(collateralPrice['precision']));
+    if (openPositionFeeAmount.integerValue().toString() != BigNumber(openPositionFeeAmountOnchain).integerValue().toString()) {
+        const delta = openPositionFeeAmount.integerValue().minus(BigNumber(openPositionFeeAmountOnchain).integerValue());
+        console.log(openPositionFeeAmount.toString());
+        console.log(openPositionFeeAmountOnchain.toString());
+        throw new Error("open fee amount error: " + delta.toString());
     }
 
     // treasury reserve amount
@@ -106,7 +107,6 @@ export async function check(hash: HexInput) {
         const delta = rebateFeeAmount.integerValue().minus(BigNumber(rebateFeeAmountOnchain));
         throw new Error("rebate amount error: " + delta.toString());
     }
-    
 }
 
 async function main(hash: HexInput) {
@@ -114,5 +114,5 @@ async function main(hash: HexInput) {
 }
 
 (async () => {
-    await main("")
+    await main("0x20e357e3776ce1d5a711c1783aeb9b6a4222666bc0451edff03e352893027e87")
 })()

@@ -6,7 +6,8 @@
     "price": "tsc lp_price.ts --outDir dist && node dist/lp_price.js",
     "deposit-check": "tsc ./check/depositCheck.ts --outDir dist && node dist/check/depositCheck.js",
     "withdraw-check": "tsc ./check/withdrawCheck.ts --outDir dist && node dist/check/withdrawCheck.js",
-    "decrease-position-check": "tsc ./check/decreasePositionCheck.ts --outDir dist && node dist/check/decreasePositionCheck.js"
+    "decrease-position-check": "tsc ./check/decreasePositionCheck.ts --outDir dist && node dist/check/decreasePositionCheck.js",
+    "open-position-check": "tsc ./check/openPositionCheck.ts --outDir dist && node dist/check/openPositionCheck.js"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^1.27.0",

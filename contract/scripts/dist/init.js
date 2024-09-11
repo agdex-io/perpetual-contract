@@ -38,7 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatAptosDecimal = exports.DOGE_FEEDER_ADDRESS = exports.PEPE_FEEDER_ADDRESS = exports.AVAX_FEEDER_ADDRESS = exports.SOL_FEEDER_ADDRESS = exports.BNB_FEEDER_ADDRESS = exports.ETH_FEEDER_ADDRESS = exports.BTC_FEEDER_ADDRESS = exports.USDC_FEEDER_ADDRESS = exports.USDT_FEEDER_ADDRESS = exports.APT_FEEDER_ADDRESS = exports.COIN_ADDRESS = exports.FEERDER_ADDRESS = exports.MODULE_ADDRESS = void 0;
 var ts_sdk_1 = require("@aptos-labs/ts-sdk");
-exports.MODULE_ADDRESS = "0x34b01c963c348d1d1369ef07fbf4c3f390186007b3e21917d6e36c7342b4b080";
+exports.MODULE_ADDRESS = "0x61f42ca514f4c945635b42efa7df76b9260db4db9e4268e39f88b30d7dea22eb";
 exports.FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387";
 exports.COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5";
 exports.APT_FEEDER_ADDRESS = "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e";
@@ -60,7 +60,7 @@ var aptosConfig = new ts_sdk_1.AptosConfig({ network: ts_sdk_1.Network.TESTNET }
 var aptos = new ts_sdk_1.Aptos(aptosConfig);
 var moduleAddress = exports.MODULE_ADDRESS;
 var coinAddress = exports.COIN_ADDRESS;
-var PRIVATE_KEY = '0x774e2bec80edee0e7be80ac2ea18b2e79eea18204ffcb08f2cd14f8704d73fec';
+var PRIVATE_KEY = '0xd15db54256efe8c3c6b4aad77bce5361398a8b505056f2d96c8935052c83fe78';
 var singer = ts_sdk_1.Account.fromPrivateKey({
     privateKey: new ts_sdk_1.Ed25519PrivateKey(PRIVATE_KEY),
 });
