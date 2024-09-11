@@ -81,7 +81,7 @@ export async function check(hash: HexInput) {
     // openPositionSize = decreaseAmount / positionAmount * positionSize
     const openPositionSize = BigNumber(Number(decreaseAmount)).multipliedBy(BigNumber(Number(positionSizePre))).div(BigNumber(Number(positionAmountPre)));
     // const openPositionFeeValue = openPositionSize * decreaseFeeRate
-    let openPositionFeeValue = openPositionSize.multipliedBy(FeeInfo['decreaseFeeInfo']).div(BigNumber(Math.pow(10, 18)));
+    let openPositionFeeValue = openPositionSize.multipliedBy(FeeInfo['openPositionFeeInfo']).div(BigNumber(Math.pow(10, 18)));
     if (openPositionFeeValue.toString() != BigNumber(openPositionFeeValueOnchain).toString()) {
         const delta = openPositionFeeValue.minus(BigNumber(openPositionFeeValueOnchain));
         throw new Error("decrease fee value error: " + delta.toString());
