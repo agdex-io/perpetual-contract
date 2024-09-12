@@ -15,6 +15,7 @@ module perpetual::pool {
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::timestamp;
+    use aptos_framework::event::emit;
     use perpetual::lp;
     use mock::usdc::USDC;
     use mock::usdt::USDT;
@@ -152,6 +153,16 @@ module perpetual::pool {
         delta_realised_pnl: SDecimal,
         loss_amount: u64,
         liquidator_bonus_amount: u64,
+    }
+
+    #[event]
+    struct VaultDepositEvent<phantom Collateral> has copy, drop, store {
+        amount: u64
+    }
+
+    #[event]
+    struct VaultWithdrawEvent<phantom Collateral> has copy, drop, store {
+        amount: u64
     }
 
     // === Errors ===
@@ -306,6 +317,8 @@ module perpetual::pool {
         deposit_value = decimal::sub(deposit_value, fee_value);
         let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
 
+        emit(VaultDepositEvent<Collateral>{amount: deposit_amount});
+
         // compute and settle treasrury reserve amount
         let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         let treasury_reserve_amount = decimal::floor_u64(
@@ -399,6 +412,8 @@ module perpetual::pool {
             ERR_AMOUNT_OUT_TOO_LESS,
         );
 
+        emit(VaultWithdrawEvent<Collateral>{amount: withdraw_amount});
+
 
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
@@ -448,8 +463,8 @@ module perpetual::pool {
         let timestamp = timestamp::now_seconds();
         assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
 
+        emit(VaultDepositEvent<Source>{amount: coin::value(&source)});
         coin::merge(&mut source_vault.liquidity, source);
-
 
         let collateral_price = agg_price::parse_pyth_feeder(
             &source_vault.price_config,
@@ -534,9 +549,11 @@ module perpetual::pool {
             dest_amount < coin::value(&dest_vault.liquidity),
             ERR_INSUFFICIENT_LIQUIDITY,
         );
+        let dest_coin = coin::extract(&mut dest_vault.liquidity, dest_amount);
+        emit(VaultWithdrawEvent<Destination>{amount: dest_amount});
 
         (
-            coin::extract(&mut dest_vault.liquidity, dest_amount),
+            dest_coin,
             dest_fee_value,
         )
     }
@@ -619,6 +636,7 @@ module perpetual::pool {
         coin::merge(&mut vault.liquidity, open_fee);
         assert!(coin::value(&vault.liquidity) > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
         let rebate = coin::extract(&mut vault.liquidity, rebate_amount);
+        emit(VaultDepositEvent<Collateral>{amount: open_fee_amount - rebate_amount});
 
         // update symbol
         symbol.opening_size = decimal::add(
@@ -768,7 +786,9 @@ module perpetual::pool {
             vault.unrealised_reserving_fee_amount,
             reserving_fee_amount,
         );
+        let to_vault_amount = coin::value(&to_vault);
         coin::merge(&mut vault.liquidity, to_vault);
+        emit(VaultDepositEvent<Collateral>{amount: to_vault_amount});
         assert!(coin::value(&vault.liquidity) > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
         let rebate = coin::extract(&mut vault.liquidity, rebate_amount);
 
@@ -962,6 +982,8 @@ module perpetual::pool {
             vault.unrealised_reserving_fee_amount,
             reserving_fee_amount,
         );
+        let to_vault_amount = coin::value(&to_vault);
+        emit(VaultDepositEvent<Collateral>{amount: to_vault_amount});
         coin::merge(&mut vault.liquidity, to_vault);
 
         // update symbol
