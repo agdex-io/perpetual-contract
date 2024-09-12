@@ -572,7 +572,7 @@ module perpetual::pool {
 
         // Pool errors are no need to be catched
         assert!(vault.enabled, ERR_VAULT_DISABLED);
-        assert!(symbol.decrease_enabled, ERR_DECREASE_DISABLED);
+        assert!(symbol.open_enabled, ERR_OPEN_DISABLED);
 
         let index_price = agg_price::parse_pyth_feeder(
             &symbol.price_config,
