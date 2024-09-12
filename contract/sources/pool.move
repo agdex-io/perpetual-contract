@@ -260,7 +260,6 @@ module perpetual::pool {
     ) acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
         vault.price_config = price_config;
-
     }
 
     public(friend) fun new_symbol<Index, Direction>(
