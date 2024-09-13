@@ -207,6 +207,9 @@ module perpetual::market {
     const ERR_ORDER_FEE_INSUFFICIENT: u64 = 10020;
     const EVAAS_EMPTY: u64 = 10021;
 
+    const EEXCUTE_DECREASE_ORDER_FAILED: u64 = 10022;
+    const EEXECUTE_OPEN_POSITION_FAILED: u64 = 10023;
+
 
     fun init_module(admin: &signer,) {
         // create rebase fee model
@@ -1118,17 +1121,7 @@ module perpetual::market {
             // executed order failed
             option::destroy_none(result);
             let _event = option::destroy_some(failure);
-            //TODO: maybe should panic here directly?
-            assert!(code == 0, code);
-            // emit order executed and open failed
-            // event::emit(OrderExecuted {
-            //     executor,
-            //     order_name,
-            //     claim: PositionClaimed {
-            //         position_name: option::none<PositionName<C, I, D>>(),
-            //         event,
-            //     },
-            // });
+            abort(EEXECUTE_OPEN_POSITION_FAILED)
         };
         // TODO: check currency here
         coin::destroy_zero(collateral);
@@ -1219,10 +1212,8 @@ module perpetual::market {
             let _event = option::destroy_some(failure);
 
             //TODO: assert! maybe abort directly?
+            abort(EEXCUTE_DECREASE_ORDER_FAILED)
 
-            emit(
-                OrderExecuted<Collateral, Index, Direction> { executor: executor_account }
-            );
         };
 
         coin::deposit(executor_account, fee);
