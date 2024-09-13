@@ -6,9 +6,10 @@ import {
     Ed25519PrivateKey,
     Network,
 } from '@aptos-labs/ts-sdk'
+import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+export const MODULE_ADDRESS = "0x61f42ca514f4c945635b42efa7df76b9260db4db9e4268e39f88b30d7dea22eb"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
 
@@ -44,7 +45,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4'
+const PRIVATE_KEY = '0xd15db54256efe8c3c6b4aad77bce5361398a8b505056f2d96c8935052c83fe78'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -306,6 +307,7 @@ async function executeAddNewVault() {
                     vault.param_multiplier,
                 ],
             },
+            options: {expireTimestamp: Math.floor(Date.now() / 1000 + 1000)}
         })
 
         const committedTransaction = await aptos.signAndSubmitTransaction({
@@ -348,6 +350,7 @@ async function executeAddNewSymbol() {
                         symbol.liquidation_bonus,
                     ],
                 },
+                options: {expireTimestamp: Math.floor(Date.now() / 1000 + 1000)}
             })
 
             const committedTransaction = await aptos.signAndSubmitTransaction({
@@ -382,6 +385,7 @@ async function executeAddCollateralToSymbol() {
                         ],
                         functionArguments: [],
                     },
+                    options: {expireTimestamp: Math.floor(Date.now() / 1000 + 1000)}
                 });
 
                 try {

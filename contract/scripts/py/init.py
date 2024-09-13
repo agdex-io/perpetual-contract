@@ -16,8 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
-
+contract_address = "0x61f42ca514f4c945635b42efa7df76b9260db4db9e4268e39f88b30d7dea22eb"
 
 class MarketClient(RestClient):
 
@@ -166,6 +165,45 @@ class MarketClient(RestClient):
         )
         return await self.submit_bcs_transaction(signed_transaction)
 
+    async def replace_position_config(
+        self,
+        sender: Account,
+        index,
+        direction,
+        max_leverage,
+        min_holding_duration,
+        max_reserved_multiplier,
+        min_collateral_value,
+        open_fee_bps,
+        decrease_fee_bps,
+        liquidation_threshold,
+        liquidation_bonus,
+    ) -> str:
+
+        payload = EntryFunction.natural(
+            contract_address + "::market",
+            "replace_position_config",
+            [
+                TypeTag(StructTag.from_str(index)),
+                TypeTag(StructTag.from_str(contract_address + "::pool::" + direction)),
+            ],
+            [
+                TransactionArgument(max_leverage, Serializer.u64),
+                TransactionArgument(min_holding_duration, Serializer.u64),
+                TransactionArgument(max_reserved_multiplier, Serializer.u64),
+                TransactionArgument(min_collateral_value, Serializer.u256),
+                TransactionArgument(open_fee_bps, Serializer.u128),
+                TransactionArgument(decrease_fee_bps, Serializer.u128),
+                TransactionArgument(liquidation_threshold, Serializer.u128),
+                TransactionArgument(liquidation_bonus, Serializer.u128),
+            ],
+        )
+        signed_transaction = await self.create_bcs_signed_transaction(
+            sender, TransactionPayload(payload)
+        )
+        return await self.submit_bcs_transaction(signed_transaction)
+
+
     async def deposit(
         self, sender: Account, collateral, deposit_amount, min_amount_out
     ) -> str:
@@ -310,6 +348,7 @@ class MarketClient(RestClient):
                 TransactionArgument(collateral_price_threshold, Serializer.u256),
                 TransactionArgument(limited_index_price, Serializer.u256),
                 TransactionArgument(position_num, Serializer.u64),
+                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
             ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
@@ -409,6 +448,7 @@ class MarketClient(RestClient):
             [
                 TransactionArgument(redeem_num, Serializer.u64),
                 TransactionArgument(position_num, Serializer.u64),
+                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
             ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
@@ -431,6 +471,7 @@ class MarketClient(RestClient):
             [
                 TransactionArgument(owner, Serializer.struct),
                 TransactionArgument(position_num, Serializer.u64),
+                TransactionArgument([], Serializer.sequence_serializer(Serializer.sequence_serializer(Serializer.u8)))
             ],
         )
         signed_transaction = await self.create_bcs_signed_transaction(
@@ -442,7 +483,7 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4"
+        "0xd15db54256efe8c3c6b4aad77bce5361398a8b505056f2d96c8935052c83fe78"
     )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
@@ -482,36 +523,37 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "LONG")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
-    txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 1000000, 0)
-    # txn_hash = await rest_client.withdraw(sender, "0x1::aptos_coin::AptosCoin", 6000000, 0)
+    # txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 50000000, 0)
+    # txn_hash = await rest_client.withdraw(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 6000000, 0)
 
     # txn_hash = await rest_client.open_position(
     #     sender,
-    #     "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC",
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
     #     "0x1::aptos_coin::AptosCoin",
-    #     "LONG",
+    #     "SHORT",
     #     "0x1::aptos_coin::AptosCoin",
     #     1, # trading level
-    #     100000000, # open amount
-    #     200000000, # reserve amount
-    #     100000000, # collateral amount
+    #     100000000000, # open amount
+    #     10000000, # reserve amount
+    #     10000000, # collateral amount
     #     10, # fee amount
     #     908650100000000000, # collateral_price_threshold
-    #     7038650100000000000 # limited_index_price
+    #     4038650100000000000, #index price threshold
+    #      # limited_index_price
     # )
 
     # txn_hash = await rest_client.decrease_position(
     #     sender,
-    #     "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdc::USDC",
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
     #     "0x1::aptos_coin::AptosCoin",
     #     "LONG",
     #     "0x1::aptos_coin::AptosCoin",
     #     1,
     #     100,
     #     True,
-    #     100000000,
-    #     8163025540,
-    #     8108650100000000000,
+    #     5000000,
+    #     908650100000000000,
+    #     4038650100000000000,
     #     0
     # )
 
@@ -551,8 +593,55 @@ async def main():
     #     sender.address(),
     #     3
     # )
-    # txn_hash = await rest_client.pledge_in_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
-    # txn_hash = await rest_client.redeem_from_position(sender, "0x1::aptos_coin::AptosCoin", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
+    # txn_hash = await rest_client.pledge_in_position(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", "0x1::aptos_coin::AptosCoin", "LONG", 100000, 0)
+    # txn_hash = await rest_client.redeem_from_position(
+    #     sender, 
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 
+    #     "0x1::aptos_coin::AptosCoin", 
+    #     "LONG", 
+    #     1000, 
+    #     5 
+    # )
+
+    # txn_hash = await rest_client.redeem_from_position(
+    #     sender, 
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 
+    #     "0x1::aptos_coin::AptosCoin", 
+    #     "SHORT", 
+    #     1000, 
+    #     11 
+    # )
+
+    # txn_hash = await rest_client.liquidate_position(
+    #     sender,
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+    #     "0x1::aptos_coin::AptosCoin",
+    #     "SHORT",
+    #     sender.address(),
+    #     13
+    # )
+    txn_hash = await rest_client.liquidate_position(
+        sender,
+        "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+        "0x1::aptos_coin::AptosCoin",
+        "LONG",
+        sender.address(),
+        6
+    )
+
+    # txn_hash = await rest_client.replace_position_config(
+    #     sender,
+    #     "0x1::aptos_coin::AptosCoin",
+    #     "SHORT",
+    #     10000, #max_leverage,
+    #     20,#min_holding_duration,
+    #     20,#max_reserved_multiplier,
+    #     1000000000000000000,#min_collateral_value,
+    #     1000000000000000,#open_fee_bps,
+    #     1000000000000000,#decrease_fee_bps,
+    #     980000000000000000,#liquidation_threshold,
+    #     10000000000000000,#liquidation_bonus,
+    # )
     print(txn_hash)
 #
 #

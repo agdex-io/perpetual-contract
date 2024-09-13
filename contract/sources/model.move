@@ -54,8 +54,7 @@ module perpetual::model {
         ratio: Rate,
         target_ratio: Rate,
     ): Rate {
-        if ((increase && rate::le(&ratio, &target_ratio))
-            || (!increase && rate::ge(&ratio, &target_ratio))) {
+        if ((increase && rate::le(&ratio, &target_ratio)) || (!increase && rate::ge(&ratio, &target_ratio))) {
             model.base
         } else {
             let delta_rate = decimal::mul_with_rate(
@@ -86,7 +85,10 @@ module perpetual::model {
         elapsed: u64,
     ): SRate {
         let daily_rate = decimal::to_rate(
-            decimal::mul(model.multiplier, sdecimal::value(&pnl_per_lp))
+            decimal::mul(
+                model.multiplier, 
+                sdecimal::value(&pnl_per_lp)
+            )
         );
         if (rate::gt(&daily_rate, &model.max)) {
             daily_rate = model.max;
