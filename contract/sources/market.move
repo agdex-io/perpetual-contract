@@ -1033,6 +1033,30 @@ module perpetual::market {
         positions::destroy_position<Collateral>(position);
     }
 
+    public entry fun force_clear_closed_position<Collateral, Index, Direction>(
+        admin: &signer,
+        user_account: address,
+        position_num: u64
+    ) acquires Market, PositionRecord {
+
+        admin::check_permission(signer::address_of(admin));
+
+        let market = borrow_global_mut<Market>(@perpetual);
+        assert!(
+            !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
+        );
+
+        let position_id = PositionId<Collateral, Index, Direction> {
+            id: position_num,
+            owner: user_account,
+        };
+        let position_record =
+            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        let position = table::remove(&mut position_record.positions, position_id);
+
+        positions::destroy_position<Collateral>(position);
+    }
+
     public entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
         executor: &signer,
         owner: address,
@@ -1495,9 +1519,52 @@ module perpetual::market {
         pool::collateral_amount<Collateral>(withdraw_value)
     }
 
-    public fun force_close_position<Collateral, Index, Direction>() {}
+    public entry fun force_clear_open_position_order<Collateral, Index, Direction, Fee>(
+        admin: &signer,
+        user_account: address,
+        order_num: u64
+    ) acquires OrderRecord {
 
-    public fun force_clear_closed_position<Collateral, Index, Direction>() {}
+        admin::check_permission(signer::address_of(admin));
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.open_orders, order_id);
+        let (collateral, fee) = orders::destroy_open_position_order(order);
+
+        emit(OrderCleared<Collateral, Index, Direction> {});
+
+        coin::deposit(user_account, collateral);
+        coin::deposit(user_account, fee);
+
+    }
+
+
+    public entry fun force_clear_decrease_position_order<Collateral, Index, Direction, Fee>(
+        admin: &signer,
+        user_account: address,
+        order_num: u64
+    ) acquires OrderRecord {
+
+        admin::check_permission(signer::address_of(admin));
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.decrease_orders, order_id);
+        let fee = orders::destory_decrease_position_order(order);
+
+        emit(OrderCleared<Collateral, Index, Direction> {});
+
+        coin::deposit(user_account, fee);
+    }
 
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6
