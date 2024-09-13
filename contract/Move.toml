@@ -1,6 +1,7 @@
 [package]
 name = "perpetual"
 version = "0.0.1"
+upgrade_policy = "compatible"
 authors = []
 
 [addresses]
