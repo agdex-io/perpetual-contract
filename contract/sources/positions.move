@@ -588,6 +588,19 @@ module perpetual::positions {
         Coin<Collateral>,
     ) {
         assert!(!position.closed, ERR_ALREADY_CLOSED);
+        emit(PositionSnapshot<Collateral>{
+            closed: position.closed,
+            config: position.config,
+            open_timestamp: position.open_timestamp,
+            position_amount: position.position_amount,
+            position_size: position.position_size,
+            reserving_fee_amount: position.reserving_fee_amount,
+            funding_fee_value: position.funding_fee_value,
+            last_reserving_rate: position.last_reserving_rate,
+            last_funding_rate: position.last_funding_rate,
+            reserved_amount: coin::value(&position.reserved),
+            collateral_amount: coin::value(&position.collateral)
+        });
 
         // compute delta size
         let delta_size = compute_delta_size(position, index_price, long);

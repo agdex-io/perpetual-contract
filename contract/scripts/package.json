@@ -7,7 +7,8 @@
     "deposit-check": "tsc ./check/depositCheck.ts --outDir dist && node dist/check/depositCheck.js",
     "withdraw-check": "tsc ./check/withdrawCheck.ts --outDir dist && node dist/check/withdrawCheck.js",
     "decrease-position-check": "tsc ./check/decreasePositionCheck.ts --outDir dist && node dist/check/decreasePositionCheck.js",
-    "open-position-check": "tsc ./check/openPositionCheck.ts --outDir dist && node dist/check/openPositionCheck.js"
+    "open-position-check": "tsc ./check/openPositionCheck.ts --outDir dist && node dist/check/openPositionCheck.js",
+    "liquidate-position-check": "tsc ./check/liquidationCheck.ts --outDir dist && node dist/check/liquidationCheck.js"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^1.27.0",
