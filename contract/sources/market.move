@@ -166,6 +166,22 @@ module perpetual::market {
         rebate_user_amount: u64,
         rebate_referrer_amount: u64,
     }
+    #[event]
+    struct ReferrerProfitExecuted<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+        user: address,
+        referrer: address,
+        amount: u64,
+        rebate_user_amount: u64,
+        rebate_referrer_amount: u64,
+    }
+     #[event]
+    struct ReferrerProfitExecute<phantom Collateral, phantom Index> has copy, drop, store {
+        user: address,
+        referrer: address,
+        amount: u64,
+        rebate_user_amount: u64,
+        rebate_referrer_amount: u64,
+    }
 
     #[event]
     struct OrderCleared<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {}
@@ -449,7 +465,9 @@ module perpetual::market {
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
         let price_config =
             agg_price::new_agg_price_config<Index>(
-                max_interval, max_price_confidence, identifier
+                max_interval, 
+                max_price_confidence, 
+                identifier
             );
         pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
         // TODO: emit event
@@ -692,7 +710,7 @@ module perpetual::market {
 
                 coin::deposit(user_account, rebate);
 
-                emit(ReferrerProfitUpdated<Collateral> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
                     referrer: referrer,
                     amount: open_amount,
@@ -730,16 +748,19 @@ module perpetual::market {
         let long = parse_direction<Direction>();
 
         let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
+        
         let index_price =
             agg_price::parse_pyth_feeder(
                 &pool::symbol_price_config<Index, Direction>(),
                 timestamp,
             );
+
         let limited_index_price =
             agg_price::from_price(
                 &pool::symbol_price_config<Index, Direction>(),
                 decimal::from_raw(limited_index_price),
             );
+
         let position_id = PositionId<Collateral, Index, Direction> {
             id: position_num,
             owner: user_account
@@ -842,7 +863,7 @@ module perpetual::market {
 
                 coin::deposit(user_account, rebate);
 
-                emit(ReferrerProfitUpdated<Collateral> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
                     referrer: referrer,
                     amount: decrease_amount,
@@ -1079,7 +1100,7 @@ module perpetual::market {
                 coin::deposit(owner, rebate_amount_coin2);
                 coin::deposit(owner, rebate);
 
-                emit(ReferrerProfitUpdated<Collateral> {
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
                     referrer: referrer,
                     amount: open_amount,
@@ -1178,7 +1199,7 @@ module perpetual::market {
                 
                 coin::deposit(owner, rebate);
 
-                 emit(ReferrerProfitUpdated<Collateral> {
+                 emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
                     referrer: referrer,
                     amount: decrease_amount,

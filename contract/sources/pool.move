@@ -14,9 +14,11 @@ module perpetual::pool {
     use aptos_std::type_info::{Self, TypeInfo};
     use perpetual::agg_price::{Self, AggPriceConfig, AggPrice};
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::event::emit;
     use aptos_framework::timestamp;
     use aptos_framework::event::emit;
     use perpetual::lp;
+
     use mock::usdc::USDC;
     use mock::usdt::USDT;
     use mock::btc::BTC;
@@ -31,8 +33,65 @@ module perpetual::pool {
     friend perpetual::orders;
 
     struct LONG has drop {}
-
     struct SHORT has drop {}
+
+    #[event]
+    struct PoolOpenPosition has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice,
+        treasury_reserve_amount: u64,
+        rebate_amount: u64,
+        open_fee_amount: u64
+    }
+
+    #[event]
+    struct PoolDecreasePosition has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice,
+        treasury_reserve_amount: u64,
+        rebate_amount: u64
+    }
+
+    #[event]
+    struct RateChanged has copy, drop, store {
+        acc_reserving_rate: Rate,
+        acc_funding_rate: SRate,
+    }
+
+    #[event]
+    struct PoolDeposit has drop, copy, store {
+        deposit_amount: u64,
+        min_amount_out: u64,
+        lp_supply_amount: Decimal,
+        mint_amount: u64,
+        treasury_reserve_value: Decimal,
+        treasury_reserve_amount: u64,
+        fee_rate: Rate,
+        fee_value: Decimal,
+        collateral_price: AggPrice,
+    }
+
+    #[event]
+    struct PoolWithdraw has copy, drop, store {
+        burn_amount: u64,
+        market_value: Decimal,
+        vault_value: Decimal,
+        min_amount_out: u64,
+        lp_supply_amount: Decimal,
+        withdraw_value: Decimal,
+        withdraw_amount: u64,
+        treasury_reserve_value: Decimal,
+        treasury_reserve_amount: u64,
+        fee_rate: Rate,
+        fee_value: Decimal,
+        collateral_price: AggPrice,
+    }
+
+    #[event]
+    struct PoolLiquidation has copy, drop, store {
+        collateral_price: AggPrice,
+        index_price: AggPrice
+    }
 
     struct Vault<phantom Collateral> has key, store {
         enabled: bool,
@@ -212,7 +271,6 @@ module perpetual::pool {
     ) acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
         vault.price_config = price_config;
-
     }
 
     public(friend) fun new_symbol<Index, Direction>(
@@ -346,6 +404,17 @@ module perpetual::pool {
             )
         };
         assert!(mint_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+        emit(PoolDeposit{
+            deposit_amount,
+            min_amount_out,
+            lp_supply_amount,
+            mint_amount,
+            treasury_reserve_value,
+            treasury_reserve_amount,
+            fee_rate,
+            fee_value,
+            collateral_price,
+        });
 
         (mint_amount, fee_value)
     }
@@ -420,6 +489,21 @@ module perpetual::pool {
         );
         let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
         coin::deposit(treasury_address, treasury);
+
+        emit(PoolWithdraw {
+            burn_amount,
+            market_value,
+            vault_value,
+            min_amount_out,
+            lp_supply_amount,
+            withdraw_value,
+            withdraw_amount,
+            treasury_reserve_value,
+            treasury_reserve_amount,
+            fee_rate,
+            fee_value,
+            collateral_price,
+        });
 
         (withdraw, fee_value)
     }
@@ -583,8 +667,10 @@ module perpetual::pool {
         );
         // refresh vault
         refresh_vault(vault, timestamp);
+        
         // refresh symbol
         let delta_size = symbol_delta_size(symbol, &index_price, long);
+
         refresh_symbol(
             symbol,
             delta_size,
@@ -606,6 +692,12 @@ module perpetual::pool {
             symbol.acc_funding_rate,
             timestamp,
         );
+
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+
         if (code > 0) {
             option::destroy_none(result);
 
@@ -660,8 +752,14 @@ module perpetual::pool {
                 rebate_amount,
             },
         };
+        emit(PoolOpenPosition {
+            index_price,
+            collateral_price,
+            treasury_reserve_amount,
+            rebate_amount,
+            open_fee_amount
+        });
         (code, collateral, option::some(result), option::none())
-
     }
 
     public(friend) fun unwrap_open_position_result<C>(res: OpenPositionResult<C>): (
@@ -741,6 +839,10 @@ module perpetual::pool {
             symbol.acc_funding_rate,
             timestamp,
         );
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
         if (code > 0) {
             option::destroy_none(result);
 
@@ -832,6 +934,12 @@ module perpetual::pool {
                 rebate_amount,
             },
         };
+        emit(PoolDecreasePosition{
+            collateral_price,
+            index_price,
+            rebate_amount,
+            treasury_reserve_amount
+        });
         (code, option::some(result), option::none())
 
     }
@@ -850,7 +958,7 @@ module perpetual::pool {
             decrease_amount,
             vault.acc_reserving_rate,
         );
-
+        
         // update vault
         vault.reserved_amount = vault.reserved_amount - decrease_amount;
         coin::merge(&mut vault.liquidity, decreased_reserved);
@@ -916,6 +1024,12 @@ module perpetual::pool {
             timestamp,
         );
 
+
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+
         let event = RedeemFromPositionEvent {
             collateral_price: agg_price::price_of(&collateral_price),
             index_price: agg_price::price_of(&index_price),
@@ -976,6 +1090,12 @@ module perpetual::pool {
             symbol.acc_funding_rate,
         );
 
+        emit(RateChanged {
+            acc_reserving_rate: vault.acc_reserving_rate,
+            acc_funding_rate: symbol.acc_funding_rate,
+        });
+        
+
         // update vault
         vault.reserved_amount = vault.reserved_amount - reserved_amount;
         vault.unrealised_reserving_fee_amount = decimal::sub(
@@ -1016,6 +1136,10 @@ module perpetual::pool {
             loss_amount: trader_loss_amount,
             liquidator_bonus_amount,
         };
+        emit(PoolLiquidation{
+            collateral_price,
+            index_price
+        });
 
         (to_liquidator, event)
     }
