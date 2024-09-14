@@ -8,7 +8,6 @@ module perpetual::positions {
     use perpetual::decimal::{Self, Decimal};
     use perpetual::agg_price::{Self, AggPrice};
     use perpetual::sdecimal::{Self, SDecimal};
-    use aptos_framework::event::emit;
 
     friend perpetual::market;
     friend perpetual::pool;
@@ -86,6 +85,7 @@ module perpetual::positions {
     struct VaultWithdrawEvent<phantom Collateral> has copy, drop, store {
         amount: u64
     }
+    #[event]
     struct PositionOpenPosition<phantom Collateral> has copy, drop, store {
         closed: bool,
         config: PositionConfig,

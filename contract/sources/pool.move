@@ -16,7 +16,6 @@ module perpetual::pool {
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::emit;
     use aptos_framework::timestamp;
-    use aptos_framework::event::emit;
     use perpetual::lp;
 
     use mock::usdc::USDC;
