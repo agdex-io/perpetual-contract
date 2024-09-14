@@ -8,6 +8,7 @@ module perpetual::positions {
     use perpetual::decimal::{Self, Decimal};
     use perpetual::agg_price::{Self, AggPrice};
     use perpetual::sdecimal::{Self, SDecimal};
+    use aptos_framework::event::emit;
 
     friend perpetual::market;
     friend perpetual::pool;
@@ -77,6 +78,14 @@ module perpetual::positions {
     }
 
     #[event]
+    struct VaultDepositEvent<phantom Collateral> has copy, drop, store {
+        amount: u64
+    }
+
+    #[event]
+    struct VaultWithdrawEvent<phantom Collateral> has copy, drop, store {
+        amount: u64
+    }
     struct PositionOpenPosition<phantom Collateral> has copy, drop, store {
         closed: bool,
         config: PositionConfig,
@@ -88,8 +97,7 @@ module perpetual::positions {
         last_reserving_rate: Rate,
         last_funding_rate: SRate,
         reserved: u64,
-        collateral: u64,
-
+        collateral: u64
     }
 
     #[event]
@@ -120,7 +128,7 @@ module perpetual::positions {
         reserving_fee_value: Decimal,
         funding_fee_value: SDecimal,
         to_vault: u64,
-        to_trader: u64,
+        to_trader: u64
     }
 
     #[event]
@@ -218,6 +226,7 @@ module perpetual::positions {
 
         // take away open fee
         let open_fee = coin::extract(collateral, open_fee_amount);
+        emit(VaultWithdrawEvent<Collateral>{amount: reserve_amount});
 
         // construct position
         let position = Position {
