@@ -176,6 +176,11 @@ module perpetual::market {
         value: Decimal,
     }
 
+    #[event]
+    struct VaultOperateAddressEvent<phantom Collateral> has copy, drop, store {
+        user: address
+    }
+
     // === Errors ===
     // common errors
     const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
@@ -705,6 +710,7 @@ module perpetual::market {
             };
 
             emit(OrderExecuted<Collateral, Index, Direction> { executor: user_account });
+            emit(VaultOperateAddressEvent<Collateral> { user: user_account });
         }
     }
 
@@ -855,6 +861,7 @@ module perpetual::market {
             };
 
             emit(PositionClaimed<Collateral, Index, Direction> {});
+            emit(VaultOperateAddressEvent<Collateral> { user: user_account });
         }
     }
 
@@ -885,6 +892,7 @@ module perpetual::market {
             );
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
+        emit(VaultOperateAddressEvent<Collateral> { user: user_account });
     }
 
     public entry fun pledge_in_position<Collateral, Index, Direction>(
@@ -947,6 +955,7 @@ module perpetual::market {
         coin::deposit(user_account, redeem);
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
+        emit(VaultOperateAddressEvent<Collateral> { user: user_account });
 
     }
 
@@ -987,6 +996,7 @@ module perpetual::market {
         coin::deposit(liquidator_account, liquidation_fee);
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
+        emit(VaultOperateAddressEvent<Collateral> { user: owner });
 
     }
 
@@ -1094,6 +1104,7 @@ module perpetual::market {
             emit(
                 OrderExecuted<Collateral, Index, Direction> { executor: executor_account }
             );
+            emit(VaultOperateAddressEvent<Collateral> { user: owner });
         } else {
             // executed order failed
             option::destroy_none(result);
@@ -1193,6 +1204,7 @@ module perpetual::market {
             emit(
                 OrderExecuted<Collateral, Index, Direction> { executor: executor_account }
             );
+            emit(VaultOperateAddressEvent<Collateral> { user: owner });
         } else {
             // executed order failed
             option::destroy_none(result);
@@ -1287,6 +1299,7 @@ module perpetual::market {
                 fee_value,
             },
         );
+        emit(VaultOperateAddressEvent<Collateral> { user: signer::address_of(user) });
     }
 
     public entry fun withdraw<Collateral>(
@@ -1330,6 +1343,7 @@ module perpetual::market {
                 fee_value,
             },
         );
+        emit(VaultOperateAddressEvent<Collateral> { user: signer::address_of(user) });
 
     }
 
@@ -1426,7 +1440,8 @@ module perpetual::market {
                 fee_value: decimal::add(source_fee_value, dest_fee_value),
             },
         );
-
+        emit(VaultOperateAddressEvent<Source> { user: signer::address_of(user) });
+        emit(VaultOperateAddressEvent<Destination> { user: signer::address_of(user) });
     }
 
     fun finalize_market_valuation(): (Decimal, Decimal, Decimal) {
