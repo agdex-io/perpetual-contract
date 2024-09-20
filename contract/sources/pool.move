@@ -217,10 +217,19 @@ module perpetual::pool {
     struct VaultDepositEvent<phantom Collateral> has copy, drop, store {
         amount: u64
     }
+    #[event]
+    struct VaultDepositAddressEvent<phantom Collateral> has copy, drop, store {
+        user: address
+    }
 
     #[event]
     struct VaultWithdrawEvent<phantom Collateral> has copy, drop, store {
         amount: u64
+    }
+
+    #[event]
+    struct VaultWithdrawAddressEvent<phantom Collateral> has copy, drop, store {
+        user: address
     }
 
     // === Errors ===
@@ -375,6 +384,7 @@ module perpetual::pool {
         let deposit_coin = coin::withdraw<Collateral>(user, deposit_amount);
 
         emit(VaultDepositEvent<Collateral>{amount: deposit_amount});
+        emit(VaultDepositAddressEvent<Collateral>{user: signer::address_of(user)});
 
         // compute and settle treasrury reserve amount
         let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
