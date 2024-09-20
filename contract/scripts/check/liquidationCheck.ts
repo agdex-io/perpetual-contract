@@ -4,7 +4,7 @@ import {
     Network,
     HexInput
 } from '@aptos-labs/ts-sdk'
-import {FeeInfo} from '../batch/helper'
+import {FeeInfo, errorFromatter} from '../batch/helper'
 import BigNumber from "bignumber.js";
 
 
@@ -46,18 +46,13 @@ export async function check(hash: HexInput) {
     const poolLiquidation = response['events'].filter((e) => e['type'].indexOf("pool::PoolLiquidation")>=0);
     const poolRateChanged = response['events'].filter((e) => e['type'].indexOf("pool::RateChanged")>=0);
     const positionSnapshot = response['events'].filter((e) => e['type'].indexOf("positions::PositionSnapshot")>=0);
-    // console.log(positionLiquidation);
-    // console.log(poolLiquidation);
-    // console.log(poolRateChanged);
-    // console.log(positionSnapshot);
 
-    // const positionDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("positions::PositionDecreasePosition")>=0);
-    // const positionSnapshot = response['events'].filter((e) => e['type'].indexOf("positions::PositionSnapshot")>=0);
+    let errorList = [] as any[];
 
-    if(poolRateChanged.length != 1) throw new Error("Not Successful TXN");
-    if(poolLiquidation.length != 1) throw new Error("Not Successful TXN");
-    if(positionLiquidation.length != 1) throw new Error("Not Successful TXN");
-    if(positionSnapshot.length != 1) throw new Error("Not Successful TXN");
+    if(poolRateChanged.length != 1) errorList.push("Not Successful TXN");
+    if(poolLiquidation.length != 1) errorList.push("Not Successful TXN");
+    if(positionLiquidation.length != 1) errorList.push("Not Successful TXN");
+    if(positionSnapshot.length != 1) errorList.push("Not Successful TXN");
 
     const long = response['payload']['type_arguments'][2].indexOf("LONG") >= 0 ? true : false;
     // const decreaseAmount = response['payload']['arguments'][3];
@@ -77,19 +72,6 @@ export async function check(hash: HexInput) {
     const reservingFeePre = positionSnapshot[0]['data']['reserving_fee_amount']['value'];
     const bonusAmountOnchain = positionLiquidation[0]['data']['bonus_amount'];
     const toVaultAmountOnchain = positionLiquidation[0]['data']['to_valut'];
-    // const settledAmountOnchain = positionDecreasePositionEvent[0]['data']['settled_amount'];
-    // const decreaseFeeValueOnchain = positionDecreasePositionEvent[0]['data']['decrease_fee_value']['value'];
-    // const treasuryReserveAmountOnchain = poolDecreasePositionEvent[0]['data']['treasury_reserve_amount'];
-    // const rebateFeeAmountOnchain = poolDecreasePositionEvent[0]['data']['rebate_amount'];
-
-    // console.log(long);
-    // console.log(decreaseAmount);
-    // console.log(positionAmountPre);
-    // console.log(positionSizePre);
-    // console.log(collateralPrice);
-    // console.log(sdecimalToBigNumber(fundingFeeRateCur).toString());
-    // console.log(sdecimalToBigNumber(fundingFeePre).toString());
-    // console.log(sdecimalToBigNumber(reservingFeePre).toString());
 
     // // delta size and check liquidation threshold
     // delta_size  = latest_size - position_size_pre(long or short) - (funding_fee_value + reserving_fee_value)
@@ -105,18 +87,18 @@ export async function check(hash: HexInput) {
     let deltaSize = latest_size.minus(BigNumber(positionSizePre)).minus(reservingFeeValue.plus(fundingFeeValue));
     if (!long) deltaSize = deltaSize.multipliedBy(-1); 
     if (deltaSize.isPositive()) {
-            throw new Error('Liquidation Check Error');
+            errorList.push('Liquidation Check Error;');
     } else {
         const deltaSizeThreshold = collateralValue.multipliedBy(BigNumber(liquidateThreshold)).dividedBy(Math.pow(10, 18));
         if (deltaSizeThreshold.abs().gt(deltaSize.abs())) {
-            throw new Error('Liquidation Check Error');
+            errorList.push('Liquidation Check Error;');
         }
     }
     // to liquidator amount(bonus amount)
     const bounsAmount = BigNumber(positionCollateralAmount).multipliedBy(BigNumber(liquidateBonusRate)).dividedBy(Math.pow(10, 18));
     if(bounsAmount.integerValue().toString() != BigNumber(bonusAmountOnchain).toString()) {
         let delta = bounsAmount.integerValue().minus(BigNumber(bonusAmountOnchain));
-        throw new Error("bouns amount error: " + delta.toString());
+        errorList.push("bouns amount error: " + delta.toString());
     }
 
     // to vault amount
@@ -124,7 +106,11 @@ export async function check(hash: HexInput) {
     const toVaultAmount = BigNumber(positionCollateralAmount).minus(bounsAmount).plus(BigNumber(positionReservedAmount));
     if(toVaultAmount.integerValue().toString() != BigNumber(toVaultAmountOnchain).toString()) {
         let delta = toVaultAmount.integerValue().minus(BigNumber(toVaultAmountOnchain));
-        throw new Error('to vault amount error: ' + delta.toString());
+        errorList.push('to vault amount error: ' + delta.toString());
+    }
+    
+    if(errorList.length > 0) {
+        return Error(errorFromatter(errorList));
     }
 
 }

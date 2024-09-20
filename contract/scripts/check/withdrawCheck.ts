@@ -4,7 +4,7 @@ import {
     Network,
     HexInput
 } from '@aptos-labs/ts-sdk'
-import {FeeInfo} from '../batch/helper'
+import {errorFromatter, FeeInfo} from '../batch/helper'
 import BigNumber from "bignumber.js";
 
 
@@ -18,13 +18,15 @@ export async function check(hash: HexInput) {
     
     const response = await aptos.getTransactionByHash({transactionHash: hash});
     const PoolWithdrawEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolWithdraw")>=0);
-    console.log(PoolWithdrawEvent);
+    let errorList = [] as any[];
 
-    if(PoolWithdrawEvent.length != 1) throw new Error("Not Successful TXN");
+    if(PoolWithdrawEvent.length != 1) errorList.push("Not Successful TXN");
 
     // fee amount
     if (Number(PoolWithdrawEvent[0]['data']['fee_rate']['value']) != Number(FeeInfo['rebateFee'])) {
-        throw new Error("Rebate Rate Not Correct");
+        console.log(PoolWithdrawEvent[0]['data']['fee_rate']['value']);
+        console.log(FeeInfo['rebateFee']);
+        errorList.push("Rebate Rate Not Correct");
     }
     const burnAmount = PoolWithdrawEvent[0]['data']['burn_amount'];
     const collateralPrice = PoolWithdrawEvent[0]['data']['collateral_price'];
@@ -48,7 +50,7 @@ export async function check(hash: HexInput) {
     if (Math.floor(treasuryReserveAmount.toNumber()) != treasuryReserveAmountCheck.toNumber()) {
         console.log();
         console.log(treasuryReserveAmountCheck.toNumber());
-        throw new Error("Treasury Fee Error: "+BigNumber(treasuryReserveAmount).minus(treasuryReserveAmountCheck).toString());
+        errorList.push("Treasury Fee Error: "+BigNumber(treasuryReserveAmount).minus(treasuryReserveAmountCheck).toString());
     }
     // withdraw amount
     const withdrawVauleMinusFee = BigNumber(withdrawValue).minus(BigNumber(feeValue));
@@ -56,15 +58,20 @@ export async function check(hash: HexInput) {
                            .multipliedBy(BigNumber(collateralPrice['precision']));
     if (withdrawAmountCheck.integerValue().toString() != BigNumber(PoolWithdrawEvent[0]['data']['withdraw_amount']).toString()) {
         const delta = withdrawAmountCheck.integerValue().minus(BigNumber(PoolWithdrawEvent[0]['data']['withdraw_amount']));
-        throw new Error("withdraw amount error: "+ delta.toString());
+        errorList.push("withdraw amount error: "+ delta.toString());
+    }
+
+    if(errorList.length > 0) {
+        return Error(errorFromatter(errorList));
     }
 
 }
 
 async function main(hash: HexInput) {
-    await check(hash)
+    const res = await check(hash)
+    console.log(res);
 }
 
 (async () => {
-    await main("0x037ee5a1347819efdcd547f27d708457aba68dd9b08db4a24d440043fc2be006")
+    const res = await main("0xcb84686e16af1cbc408e3df8d60200fb0e8e19eb86144da062f442190768e18e")
 })()

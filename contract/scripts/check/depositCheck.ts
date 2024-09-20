@@ -4,7 +4,7 @@ import {
     Network,
     HexInput
 } from '@aptos-labs/ts-sdk'
-import {FeeInfo} from '../batch/helper'
+import {errorFromatter, FeeInfo} from '../batch/helper'
 import BigNumber from "bignumber.js";
 
 
@@ -18,11 +18,12 @@ export async function check(hash: HexInput) {
     
     const response = await aptos.getTransactionByHash({transactionHash: hash});
     const PoolDepositEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolDeposit")>=0);
-    if(PoolDepositEvent.length != 1) throw new Error("Not Successful TXN");
+    let errorList = [] as any[];
+    if(PoolDepositEvent.length != 1) errorList.push("Not Successful TXN");
 
     // fee amount
     if (Number(PoolDepositEvent[0]['data']['fee_rate']['value']) != Number(FeeInfo['rebateFee'])) {
-        throw new Error("Rebate Rate Not Correct");
+        errorList.push("Rebate Rate Not Correct");
     }
     const depositAmount = PoolDepositEvent[0]['data']['deposit_amount'];
     const collateralPrice = PoolDepositEvent[0]['data']['collateral_price'];
@@ -31,14 +32,18 @@ export async function check(hash: HexInput) {
     const feeValueCheck = Number(PoolDepositEvent[0]['data']['fee_value']['value'])
     // console.log(PoolDepositEvent[0]['data']['fee_value'])
     if (feeValue != feeValueCheck) {
-        throw new Error("Rebate Fee Error: "+BigNumber(feeValue).minus(BigNumber(feeValueCheck)).toString());
+        errorList.push("Rebate Fee Error: "+BigNumber(feeValue).minus(BigNumber(feeValueCheck)).toString());
     }
     // treasury reserve amount
     const treasuryReserveAmount = Math.floor(feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
                                     * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']));
     const  treasuryReserveAmountCheck= Number(PoolDepositEvent[0]['data']['treasury_reserve_amount'])
     if (treasuryReserveAmount != treasuryReserveAmountCheck) {
-        throw new Error("Treasury reserve fee Error: "+BigNumber(treasuryReserveAmount).minus(BigNumber(treasuryReserveAmountCheck)).toString());
+        errorList.push("Treasury reserve fee Error: "+BigNumber(treasuryReserveAmount).minus(BigNumber(treasuryReserveAmountCheck)).toString());
+    }
+
+    if(errorList.length > 0) {
+        return Error(errorFromatter(errorList));
     }
 
     // mint amount
