@@ -222,7 +222,6 @@ module perpetual::pool {
     struct VaultWithdrawEvent<phantom Collateral> has copy, drop, store {
         amount: u64
     }
-
     // === Errors ===
 
     // vault errors
