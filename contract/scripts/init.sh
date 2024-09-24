@@ -22,5 +22,10 @@
 
 # update rebase model
 
-add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_rebase_model --args u128:1000000000000000 u256:0 --assume-yes`
+#add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_rebase_model --args u128:1000000000000000 u256:0 --assume-yes`
+#echo "$add_admin"
+
+# update rebase model
+
+add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_vault_weight --type-args 0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC --args u256:100000000000000000 --assume-yes`
 echo "$add_admin"
