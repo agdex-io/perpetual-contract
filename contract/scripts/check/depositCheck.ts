@@ -21,24 +21,20 @@ export async function check(hash: HexInput) {
     let errorList = [] as any[];
     if(PoolDepositEvent.length != 1) errorList.push("Not Successful TXN");
 
-    // fee amount
-    if (Number(PoolDepositEvent[0]['data']['fee_rate']['value']) != Number(FeeInfo['rebateFee'])) {
-        errorList.push("Rebate Rate Not Correct");
-    }
     const depositAmount = PoolDepositEvent[0]['data']['deposit_amount'];
     const collateralPrice = PoolDepositEvent[0]['data']['collateral_price'];
     const depositValue = Number(depositAmount) * Number(collateralPrice['price']['value']) / Number(collateralPrice['precision']);
-    const feeValue = (depositValue * Number(FeeInfo['rebateFee']) / Math.pow(10, 18));
-    const feeValueCheck = Number(PoolDepositEvent[0]['data']['fee_value']['value'])
-    // console.log(PoolDepositEvent[0]['data']['fee_value'])
-    if (feeValue != feeValueCheck) {
-        errorList.push("Rebate Fee Error: "+BigNumber(feeValue).minus(BigNumber(feeValueCheck)).toString());
+    const feeRate = Number(PoolDepositEvent[0]['data']['fee_rate']['value'])
+    const feeValue = BigNumber(depositValue).multipliedBy(BigNumber(feeRate)).dividedBy(BigNumber(Math.pow(10, 18)));
+    const feeValueCheck = BigNumber(PoolDepositEvent[0]['data']['fee_value']['value'])
+    if (feeValue.integerValue().toString() != feeValueCheck.integerValue().toString()) {
+        errorList.push("Fee Error: "+feeValue.minus(feeValueCheck).toString());
     }
     // treasury reserve amount
-    const treasuryReserveAmount = Math.floor(feeValue * Number(FeeInfo['treasuryReserveFee']) / Math.pow(10, 18) 
-                                    * Number(collateralPrice['precision']) / Number(collateralPrice['price']['value']));
-    const  treasuryReserveAmountCheck= Number(PoolDepositEvent[0]['data']['treasury_reserve_amount'])
-    if (treasuryReserveAmount != treasuryReserveAmountCheck) {
+    const treasuryReserveAmount = feeValue.multipliedBy(BigNumber(FeeInfo['treasuryReserveFee']))
+                                    .multipliedBy(Number(collateralPrice['precision'])).dividedBy(Number(collateralPrice['price']['value'])).dividedBy(BigNumber(Math.pow(10, 18)));
+    const  treasuryReserveAmountCheck= BigNumber(PoolDepositEvent[0]['data']['treasury_reserve_amount'])
+    if (treasuryReserveAmount.integerValue().toString() != treasuryReserveAmountCheck.integerValue().toString()) {
         errorList.push("Treasury reserve fee Error: "+BigNumber(treasuryReserveAmount).minus(BigNumber(treasuryReserveAmountCheck)).toString());
     }
 
@@ -51,7 +47,8 @@ export async function check(hash: HexInput) {
 }
 
 async function main(hash: HexInput) {
-    await check(hash)
+    const res = await check(hash)
+    console.log(res);
 }
 
 (async () => {

@@ -22,7 +22,7 @@ async function main() {
     else if (element[2] == "decrease_position") {
         await decreaseCheck(element[1]).then((res)=>{element.push(res?.message); checkRes.push(element)}, (error)=>{console.error(error)});
     }
-    else if (element[2] == "liquidation") {
+    else if (element[2] == "liquidate_position") {
         await liquidationCheck(element[1]).then((res)=>{element.push(res?.message); checkRes.push(element)}, (error)=>{console.error(error)});
     }
     else if (element[2] == "deposit") {

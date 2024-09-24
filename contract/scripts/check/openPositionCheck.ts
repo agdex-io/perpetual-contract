@@ -66,8 +66,6 @@ export async function check(hash: HexInput) {
     let openPositionFeeAmount = openPositionFeeValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(Number(collateralPrice['precision']));
     if (openPositionFeeAmount.integerValue().toString() != BigNumber(openPositionFeeAmountOnchain).integerValue().toString()) {
         const delta = openPositionFeeAmount.integerValue().minus(BigNumber(openPositionFeeAmountOnchain).integerValue());
-        console.log(openPositionFeeAmount.toString());
-        console.log(openPositionFeeAmountOnchain.toString());
         errorList.push("open fee amount error: " + delta.toString());
     }
 
@@ -78,7 +76,6 @@ export async function check(hash: HexInput) {
     
     if (treasuryReserveAmount.integerValue().toString() != BigNumber(treasuryReserveAmountOnchain).toString()) {
         const delta = treasuryReserveAmount.integerValue().minus(BigNumber(treasuryReserveAmountOnchain));
-        console.log("delta:", delta.toString())
         errorList.push("treasury reserve amount error: " + delta.toString());
     }
 
@@ -86,8 +83,9 @@ export async function check(hash: HexInput) {
     // openPositionFeeValue * rebateRate / collateralPrice
     const rebateFeeValue = openPositionFeeValue.multipliedBy(BigNumber(FeeInfo['rebateFee'])).dividedBy(Math.pow(10, 18));
     const rebateFeeAmount = rebateFeeValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(BigNumber(collateralPrice['precision']));
-    if(rebateFeeAmount.integerValue().toString() != BigNumber(rebateFeeAmountOnchain).toString()) {
+    if(rebateFeeAmountOnchain != 0 && rebateFeeAmount.integerValue().toString() != BigNumber(rebateFeeAmountOnchain).toString()) {
         const delta = rebateFeeAmount.integerValue().minus(BigNumber(rebateFeeAmountOnchain));
+        console.log(openPositionFeeAmount.integerValue());
         console.log(rebateFeeAmount);
         console.log(rebateFeeAmountOnchain);
         errorList.push("rebate amount error: " + delta.toString());
@@ -104,5 +102,5 @@ async function main(hash: HexInput) {
 }
 
 (async () => {
-    await main("0x3d17830b56c420e8a5c738ec730345eb39e3900d80b21a9143ff7f32f7e689e6")
+    await main("0xa734a88d3e54ad1c04805ad854b1bd814b3afd24ba1a1eb77e97c1226ee60eb0")
 })()

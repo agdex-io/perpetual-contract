@@ -34,7 +34,7 @@ export async function check(hash: HexInput) {
     const lpSupplyAmount = PoolWithdrawEvent[0]['data']['lp_supply_amount']['value'];
     const withdrawValue = BigNumber(marketValue).multipliedBy((BigNumber(burnAmount)
                           .multipliedBy(BigNumber(Math.pow(10, 18)).div(BigNumber(lpSupplyAmount)))));
-    const feeValue = withdrawValue.multipliedBy(BigNumber(FeeInfo['rebateFee'])).div(BigNumber(Math.pow(10, 18)));
+    const feeValue = withdrawValue.multipliedBy(BigNumber(FeeInfo['rebaseFee'])).div(BigNumber(Math.pow(10, 18)));
     const feeValueCheck = BigNumber(PoolWithdrawEvent[0]['data']['fee_value']['value']);
     // contract may have truncation error (to_rate)
     // if (feeValue != feeValueCheck) {

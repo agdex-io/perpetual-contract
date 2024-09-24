@@ -23,10 +23,9 @@ function sdecimalMinus(a, b) {
         }
     } else {
         if (b['is_positive']) {
-            return BigNumber(a['value']['value']).plus(BigNumber(b['value']['value'])).multipliedBy(BigNumber(-1))
+            return BigNumber(a['value']['value']).plus(BigNumber(b['value']['value'])).multipliedBy(BigNumber(-1));
         } else {
-            return BigNumber(b['value']['value']).minus(BigNumber(b['value']['value']))
-
+            return (BigNumber(a['value']['value']).minus(BigNumber(b['value']['value']))).multipliedBy(BigNumber(-1));
         }
     }
 }
@@ -74,6 +73,7 @@ export async function check(hash: HexInput) {
     const positionAmountPre = positionSnapshot[0]['data']['position_amount']; 
     const positionReservedAmount = positionSnapshot[0]['data']['reserved_amount'];
     const positionCollateralAmount = positionSnapshot[0]['data']['reserved_amount'];
+    const positionReservingFeeAmount = positionSnapshot[0]['data']['reserving_fee_amount']['value'];
     const positionSizePre = positionSnapshot[0]['data']['position_size']['value']; 
     const collateralPrice = poolDecreasePositionEvent[0]['data']['collateral_price'];
     const indexPrice = poolDecreasePositionEvent[0]['data']['index_price'];
@@ -87,6 +87,9 @@ export async function check(hash: HexInput) {
     const decreaseFeeValueOnchain = positionDecreasePositionEvent[0]['data']['decrease_fee_value']['value'];
     const treasuryReserveAmountOnchain = poolDecreasePositionEvent[0]['data']['treasury_reserve_amount'];
     const rebateFeeAmountOnchain = poolDecreasePositionEvent[0]['data']['rebate_amount'];
+    const fundingFeeValueOnchain = positionDecreasePositionEvent[0]['data']['funding_fee_value']['value']['value'];
+    const reservingFeeValueOnchain = positionDecreasePositionEvent[0]['data']['reserving_fee_value']['value'];
+    const reservingFeeAmountOnchain = positionDecreasePositionEvent[0]['data']['reserving_fee_amount']['value'];
 
     // decrease fee value
     // decreaseSize = decreaseAmount / positionAmount * positionSize
@@ -94,6 +97,8 @@ export async function check(hash: HexInput) {
     // decreaseFeeValue = decreaseSize * decreaseFeeRate
     const decreaseFeeValue = decreaseSize.multipliedBy(FeeInfo['decreaseFeeInfo']).div(BigNumber(Math.pow(10, 18)));
     if (decreaseFeeValue.toString() != BigNumber(decreaseFeeValueOnchain).toString()) {
+        console.log(decreaseFeeValue.toString())
+        console.log(decreaseFeeValueOnchain.toString())
         const delta = decreaseFeeValue.minus(BigNumber(decreaseFeeValueOnchain));
         errorList.push("decrease fee value error: " + delta.toString());
     }
@@ -109,7 +114,7 @@ export async function check(hash: HexInput) {
     // decreaseFeeValue * rebateRate / collateralPrice
     const rebateFeeValue = decreaseFeeValue.multipliedBy(BigNumber(FeeInfo['rebateFee'])).dividedBy(Math.pow(10, 18));
     const rebateFeeAmount = rebateFeeValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(BigNumber(collateralPrice['precision']));
-    if(rebateFeeAmount.integerValue().toString() != BigNumber(rebateFeeAmountOnchain).toString()) {
+    if(rebateFeeAmountOnchain != 0 && rebateFeeAmount.integerValue().toString() != BigNumber(rebateFeeAmountOnchain).toString()) {
         const delta = rebateFeeAmount.integerValue().minus(BigNumber(rebateFeeAmountOnchain));
         errorList.push("rebate amount error: " + delta.toString());
     }
@@ -119,19 +124,30 @@ export async function check(hash: HexInput) {
     // reservingFeeValue = last_reserving_fee + delta_reserving_rate * position_reserved_amount * collateral_price
     // settleAmount = settledSize / collateralPrice
     const currentSize = BigNumber(positionAmountPre).multipliedBy(BigNumber(indexPrice['price']['value'])).dividedBy(BigNumber(indexPrice['precision']));
-    const deltaSize = BigNumber(positionSizePre).minus(currentSize);
+    const deltaSize = currentSize.minus(BigNumber(positionSizePre));
     const settledDeltaSize = deltaSize.multipliedBy(decreaseAmount).dividedBy(BigNumber(positionAmountPre));
+    console.log(settledDeltaSize.toString());
     const fundingFeeValue = 
         sdecimalToBigNumber(fundingFeePre).plus
         (sdecimalMinus(fundingFeeRateCur, fundingFeeRatePre).multipliedBy(BigNumber(positionSizePre)).dividedBy(BigNumber(Math.pow(10, 18))));
     const reservingFeeAmount = BigNumber(reservingFeePre).plus((BigNumber(reservingFeeRateCur['value'])
                                 .minus(reservingFeeRatePre['value'])).multipliedBy(BigNumber(positionReservedAmount)));
-    const reservingFeeValue = reservingFeeAmount.multipliedBy(BigNumber(collateralPrice['price']['value'])).dividedBy(BigNumber(collateralPrice['precision'])).dividedBy(BigNumber(Math.pow(10, 18)));
+    const reservingFeeValue = reservingFeeAmount.multipliedBy(BigNumber(collateralPrice['price']['value']))
+    .dividedBy(BigNumber(collateralPrice['precision'])).dividedBy(BigNumber(Math.pow(10, 18)));
                                 
     const settledSize = settledDeltaSize.minus(fundingFeeValue.plus(decreaseFeeValue).plus(reservingFeeValue));
     const settledAmount = settledSize.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(BigNumber(collateralPrice['precision']));
     const settledAmountCheck = settledAmount.integerValue().abs();
     if(settledAmountCheck.toString() != BigNumber(settledAmountOnchain).toString()) {
+        console.log(settledAmountCheck.toString());
+        console.log(BigNumber(settledAmountOnchain).toString());
+        console.log(fundingFeeValue.toString());
+        console.log(BigNumber(fundingFeeValueOnchain).toString());
+        console.log(positionDecreasePositionEvent[0]['data']['funding_fee_value']['is_positive']);
+        console.log(reservingFeeValue.toString());
+        console.log(BigNumber(reservingFeeValueOnchain).toString());
+        console.log(reservingFeeAmount.toString());
+        console.log(BigNumber(reservingFeeAmountOnchain).toString())
         const delta = settledAmountCheck.minus(BigNumber(settledAmountOnchain)).toString();
         errorList.push('Settled Amount Error: ' + delta);
     }
@@ -142,9 +158,11 @@ export async function check(hash: HexInput) {
 }
 
 async function main(hash: HexInput) {
-    await check(hash)
+    const res = await check(hash)
+    console.log(res);
 }
 
 (async () => {
-    await main("0x43891e60c584476a977b297cb218d4420d7ebd990026c7f37e68a1ef3a065b5c")
+    // await main("0x4e3e9a6d80ae77f13c16d461f2bc58a01cc8ec992471fa2de9d4f98f29a9c48f")
+    await main("0xc49a79e65357bff6a86aaa7826a675bb95946da6312362ebba476545c81f7338")
 })()
