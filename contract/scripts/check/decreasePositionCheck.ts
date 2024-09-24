@@ -4,7 +4,7 @@ import {
     Network,
     HexInput
 } from '@aptos-labs/ts-sdk'
-import {FeeInfo} from '../batch/helper'
+import {errorFromatter, FeeInfo} from '../batch/helper'
 import BigNumber from "bignumber.js";
 
 
@@ -65,10 +65,11 @@ export async function check(hash: HexInput) {
     const poolDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("pool::PoolDecreasePosition")>=0);
     const positionDecreasePositionEvent = response['events'].filter((e) => e['type'].indexOf("positions::PositionDecreasePosition")>=0);
     const positionSnapshot = response['events'].filter((e) => e['type'].indexOf("positions::PositionSnapshot")>=0);
-    if(rateChangedEvent.length != 1) throw new Error("Not Successful TXN");
-    if(poolDecreasePositionEvent.length != 1) throw new Error("Not Successful TXN");
-    if(positionDecreasePositionEvent.length != 1) throw new Error("Not Successful TXN");
-    if(positionSnapshot.length != 1) throw new Error("Not Successful TXN");
+    let errorList = [] as any[];
+    if(rateChangedEvent.length != 1) errorList.push("Not Successful TXN");
+    if(poolDecreasePositionEvent.length != 1) errorList.push("Not Successful TXN");
+    if(positionDecreasePositionEvent.length != 1) errorList.push("Not Successful TXN");
+    if(positionSnapshot.length != 1) errorList.push("Not Successful TXN");
     const decreaseAmount = response['payload']['arguments'][3];
     const positionAmountPre = positionSnapshot[0]['data']['position_amount']; 
     const positionReservedAmount = positionSnapshot[0]['data']['reserved_amount'];
@@ -86,13 +87,6 @@ export async function check(hash: HexInput) {
     const decreaseFeeValueOnchain = positionDecreasePositionEvent[0]['data']['decrease_fee_value']['value'];
     const treasuryReserveAmountOnchain = poolDecreasePositionEvent[0]['data']['treasury_reserve_amount'];
     const rebateFeeAmountOnchain = poolDecreasePositionEvent[0]['data']['rebate_amount'];
-    // console.log(decreaseAmount);
-    // console.log(positionAmountPre);
-    // console.log(positionSizePre);
-    // console.log(collateralPrice);
-    // console.log(fundingFeeRateCur);
-    // console.log(fundingFeePre);
-    // console.log(reservingFeePre);
 
     // decrease fee value
     // decreaseSize = decreaseAmount / positionAmount * positionSize
@@ -101,7 +95,7 @@ export async function check(hash: HexInput) {
     const decreaseFeeValue = decreaseSize.multipliedBy(FeeInfo['decreaseFeeInfo']).div(BigNumber(Math.pow(10, 18)));
     if (decreaseFeeValue.toString() != BigNumber(decreaseFeeValueOnchain).toString()) {
         const delta = decreaseFeeValue.minus(BigNumber(decreaseFeeValueOnchain));
-        throw new Error("decrease fee value error: " + delta.toString());
+        errorList.push("decrease fee value error: " + delta.toString());
     }
     // treasury reserve amount
     // decreaseFeeValue * treasuryReserveRate / collateralPrice
@@ -109,7 +103,7 @@ export async function check(hash: HexInput) {
     const treasuryReserveAmount = treasuryReserveValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(BigNumber(collateralPrice['precision']));
     if (treasuryReserveAmount.integerValue().toString() != BigNumber(treasuryReserveAmountOnchain).toString()) {
         const delta = treasuryReserveAmount.integerValue().minus(BigNumber(treasuryReserveAmountOnchain));
-        throw new Error("treasury reserve amount error: " + delta.toString());
+        errorList.push("treasury reserve amount error: " + delta.toString());
     }
     // rebate fee amount
     // decreaseFeeValue * rebateRate / collateralPrice
@@ -117,7 +111,7 @@ export async function check(hash: HexInput) {
     const rebateFeeAmount = rebateFeeValue.dividedBy(BigNumber(collateralPrice['price']['value'])).multipliedBy(BigNumber(collateralPrice['precision']));
     if(rebateFeeAmount.integerValue().toString() != BigNumber(rebateFeeAmountOnchain).toString()) {
         const delta = rebateFeeAmount.integerValue().minus(BigNumber(rebateFeeAmountOnchain));
-        throw new Error("rebate amount error: " + delta.toString());
+        errorList.push("rebate amount error: " + delta.toString());
     }
     // settled amount
     // settledSize = deltaSize * decreaseAmount / positionSize - (fundingFeeValue + decreaseFeeValue + reservingFeeValue)
@@ -139,7 +133,11 @@ export async function check(hash: HexInput) {
     const settledAmountCheck = settledAmount.integerValue().abs();
     if(settledAmountCheck.toString() != BigNumber(settledAmountOnchain).toString()) {
         const delta = settledAmountCheck.minus(BigNumber(settledAmountOnchain)).toString();
-        throw new Error('Settled Amount Error: ' + delta);
+        errorList.push('Settled Amount Error: ' + delta);
+    }
+
+    if(errorList.length > 0) {
+        return Error(errorFromatter(errorList));
     }
 }
 

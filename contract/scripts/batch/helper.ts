@@ -205,9 +205,16 @@ export const PriceFeederList: PriceFeederInfo[] = [
 ];
 
 export const FeeInfo = {
-    rebateFee: "10000000000000000",
+    rebateFee: "1000000000000000",
     treasuryReserveFee: "250000000000000000",
     decreaseFeeInfo: "1000000000000000",
     openPositionFeeInfo: "1000000000000000"
 }
 
+export function errorFromatter(errorList: any[]): string {
+    let errorString = "";
+    errorList.forEach(e=> {
+        errorString = errorString + e + ";";
+    })
+    return errorString;
+}
