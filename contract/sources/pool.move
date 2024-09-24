@@ -271,6 +271,14 @@ module perpetual::pool {
         vault.price_config = price_config;
     }
 
+    public(friend) fun update_vault_weight<Collateral>(
+        admin: &signer,
+        weight: u256
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        vault.weight = decimal::from_raw(weight);
+    }
+
     public(friend) fun new_symbol<Index, Direction>(
         admin: &signer,
         model: FundingFeeModel,

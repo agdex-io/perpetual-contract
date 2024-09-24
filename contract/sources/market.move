@@ -282,6 +282,11 @@ module perpetual::market {
         emit(VaultCreated<Collateral> {})
     }
 
+    public entry fun update_vault_weight<Collateral>(admin: &signer, weight: u256) {
+        admin::check_permission(signer::address_of(admin));
+        pool::update_vault_weight<Collateral>(admin, weight);
+    }
+
 
     public entry fun update_rebate_rate(admin: &signer, rebate_rate: u8) acquires Market {
         admin::check_permission(signer::address_of(admin));
