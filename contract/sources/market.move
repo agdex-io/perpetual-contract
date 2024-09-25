@@ -197,6 +197,20 @@ module perpetual::market {
         user: address
     }
 
+    #[event]
+    struct UserCollateralIn<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+        user: address,
+        position_id: u64,
+        amount: u64
+    }
+
+    #[event]
+    struct UserCollateralOut<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
+        user: address,
+        position_id: u64,
+        amount: u64
+    }
+
     // === Errors ===
     // common errors
     const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
@@ -682,8 +696,8 @@ module perpetual::market {
                     market.treasury_address,
                     market.treasury_ratio
                 );
-                
 
+            let collateral_remain = coin::value(&collateral);
             coin::deposit(user_account, collateral);
             // should panic when the owner execute the order
             assert!(code == 0, code);
@@ -693,6 +707,11 @@ module perpetual::market {
 
             // add position into record
             let position_record = borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+            emit(UserCollateralIn<Collateral, Index, Direction>{
+                user: user_account,
+                amount: collateral_amount - collateral_remain,
+                position_id: position_record.creation_num
+            });
             table::add(
                 &mut position_record.positions,
                 PositionId<Collateral, Index, Direction> {
@@ -854,6 +873,11 @@ module perpetual::market {
             let res = option::destroy_some(result);
             let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result<Collateral>(res);
+            emit(UserCollateralOut<Collateral, Index, Direction>{
+                user: user_account,
+                position_id: position_num,
+                amount: coin::value(&to_trader),
+            });
 
             coin::deposit<Collateral>(user_account, to_trader);
 
@@ -941,6 +965,11 @@ module perpetual::market {
                 position, coin::withdraw<Collateral>(user, pledge_num)
             );
 
+        emit(UserCollateralIn<Collateral, Index, Direction>{
+            user: user_account,
+            position_id: position_num,
+            amount: pledge_num
+        });
         emit(PositionClaimed<Collateral, Index, Direction> {});
     }
 
@@ -977,6 +1006,12 @@ module perpetual::market {
                 lp_supply_amount,
                 timestamp,
             );
+
+        emit(UserCollateralIn<Collateral, Index, Direction>{
+            user: user_account,
+            position_id: position_num,
+            amount: coin::value(&redeem)
+        });
 
         coin::deposit(user_account, redeem);
 
@@ -1093,6 +1128,11 @@ module perpetual::market {
                 id: position_record.creation_num,
                 owner: order_id.owner,
             };
+            emit(UserCollateralIn<Collateral, Index, Direction>{
+                user: owner,
+                position_id: position_id.id,
+                amount: positions::collateral_amount(&position)
+            });
             table::add(
                 &mut position_record.positions,
                 position_id,
@@ -1198,6 +1238,11 @@ module perpetual::market {
             let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result(option::destroy_some(result));
 
+            emit(UserCollateralOut<Collateral, Index, Direction>{
+                user: owner,
+                position_id: position_id.id,
+                amount: coin::value(&to_trader)
+            });
             coin::deposit(owner, to_trader);
             if (referrer != @0x0) {
                 let rebate_amount = coin::value(&rebate);
@@ -1325,6 +1370,7 @@ module perpetual::market {
                 fee_value,
             },
         );
+
         emit(VaultOperateAddressEvent<Collateral> { user: signer::address_of(user) });
     }
 
