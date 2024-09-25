@@ -198,14 +198,14 @@ module perpetual::market {
     }
 
     #[event]
-    struct UserCollateralIn<phantom Collateral> has copy, drop, store {
+    struct UserCollateralIn<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
         user: address,
         position_id: u64,
         amount: u64
     }
 
     #[event]
-    struct UserCollateralOut<phantom Collateral> has copy, drop, store {
+    struct UserCollateralOut<phantom Collateral, phantom Index, phantom Direction> has copy, drop, store {
         user: address,
         position_id: u64,
         amount: u64
@@ -707,7 +707,7 @@ module perpetual::market {
 
             // add position into record
             let position_record = borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
-            emit(UserCollateralIn<Collateral>{
+            emit(UserCollateralIn<Collateral, Index, Direction>{
                 user: user_account,
                 amount: collateral_amount - collateral_remain,
                 position_id: position_record.creation_num
@@ -873,7 +873,7 @@ module perpetual::market {
             let res = option::destroy_some(result);
             let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result<Collateral>(res);
-            emit(UserCollateralOut<Collateral>{
+            emit(UserCollateralOut<Collateral, Index, Direction>{
                 user: user_account,
                 position_id: position_num,
                 amount: coin::value(&to_trader),
@@ -965,7 +965,7 @@ module perpetual::market {
                 position, coin::withdraw<Collateral>(user, pledge_num)
             );
 
-        emit(UserCollateralIn<Collateral>{
+        emit(UserCollateralIn<Collateral, Index, Direction>{
             user: user_account,
             position_id: position_num,
             amount: pledge_num
@@ -1007,7 +1007,7 @@ module perpetual::market {
                 timestamp,
             );
 
-        emit(UserCollateralIn<Collateral>{
+        emit(UserCollateralIn<Collateral, Index, Direction>{
             user: user_account,
             position_id: position_num,
             amount: coin::value(&redeem)
@@ -1128,7 +1128,7 @@ module perpetual::market {
                 id: position_record.creation_num,
                 owner: order_id.owner,
             };
-            emit(UserCollateralIn<Collateral>{
+            emit(UserCollateralIn<Collateral, Index, Direction>{
                 user: owner,
                 position_id: position_id.id,
                 amount: positions::collateral_amount(&position)
@@ -1238,7 +1238,7 @@ module perpetual::market {
             let (to_trader, rebate, _event) =
                 pool::unwrap_decrease_position_result(option::destroy_some(result));
 
-            emit(UserCollateralOut<Collateral>{
+            emit(UserCollateralOut<Collateral, Index, Direction>{
                 user: owner,
                 position_id: position_id.id,
                 amount: coin::value(&to_trader)
