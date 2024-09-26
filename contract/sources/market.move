@@ -26,6 +26,7 @@ module perpetual::market {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
+    use mock::st_apt::ST_APT;
 
     struct Market has key {
         vaults_locked: bool,
@@ -343,6 +344,7 @@ module perpetual::market {
         aptos_framework::managed_coin::register<USDT>(referrer);
         aptos_framework::managed_coin::register<BTC>(referrer);
         aptos_framework::managed_coin::register<ETH>(referrer);
+        aptos_framework::managed_coin::register<ST_APT>(referrer);
 
 
         let length = string::length(&code);
@@ -734,7 +736,11 @@ module perpetual::market {
                 let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
                 let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(referrer, rebate_amount_coin1);
+                if (coin::is_account_registered<Collateral>(referrer)) {
+                    coin::deposit(referrer, rebate_amount_coin1);
+                } else {
+                    coin::deposit(market.treasury_address, rebate_amount_coin1);
+                };
                 coin::deposit(user_account, rebate_amount_coin2);
 
                 coin::deposit(user_account, rebate);
@@ -893,7 +899,11 @@ module perpetual::market {
                 let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
                 let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(referrer, rebate_amount_coin1);
+                if (coin::is_account_registered<Collateral>(referrer)) {
+                    coin::deposit(referrer, rebate_amount_coin1);
+                } else {
+                    coin::deposit(market.treasury_address, rebate_amount_coin1);
+                };
                 coin::deposit(user_account, rebate_amount_coin2);
 
                 coin::deposit(user_account, rebate);
@@ -1151,7 +1161,11 @@ module perpetual::market {
                 let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
                 let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(referrer, rebate_amount_coin1);
+                if (coin::is_account_registered<Collateral>(referrer)) {
+                    coin::deposit(referrer, rebate_amount_coin1);
+                } else {
+                    coin::deposit(market.treasury_address, rebate_amount_coin1);
+                };
                 coin::deposit(owner, rebate_amount_coin2);
                 coin::deposit(owner, rebate);
 
@@ -1255,7 +1269,11 @@ module perpetual::market {
                 let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
                 let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(referrer, rebate_amount_coin1);
+                if (coin::is_account_registered<Collateral>(referrer)) {
+                    coin::deposit(referrer, rebate_amount_coin1);
+                } else {
+                    coin::deposit(market.treasury_address, rebate_amount_coin1);
+                };
                 coin::deposit(owner, rebate_amount_coin2);
                 
                 coin::deposit(owner, rebate);

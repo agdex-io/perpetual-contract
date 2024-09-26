@@ -40,7 +40,7 @@ class MarketClient(RestClient):
         vas_hex = res.json()["binary"]["data"][0]
         vas_bytes_4 = list(bytes.fromhex(vas_hex))
 
-        res = requests.get("https://hermes-beta.pyth.network/v2/updates/price/latest?ids%5B%5D=0xca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6")
+        res = requests.get("https://hermes-beta.pyth.network/v2/updates/price/latest?ids%5B%5D=0x8a893dd9285c274e9e903d45269dff8f258d471046aba3c7c5037d2609877931")
         vas_hex = res.json()["binary"]["data"][0]
         vas_bytes_5 = list(bytes.fromhex(vas_hex))
 

@@ -136,10 +136,10 @@ const VAULT_LIST = [
         name: 'ST_APT',
         vaultType: ST_APT_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.10, 18),
-        max_interval: 2000,
+        max_interval: 21974967,
         max_price_confidence: '18446744073709551615',
         feeder:
-            ETH_FEEDER_ADDRESS,
+            ST_APT_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
     },
 ]
@@ -424,8 +424,8 @@ async function executeAddCollateralToSymbol() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    await executeAddCollateralToSymbol()
-    // await replaceVaultPriceFeeder()
+    // await executeAddCollateralToSymbol()
+    await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
 }
 
