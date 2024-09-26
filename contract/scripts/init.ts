@@ -9,7 +9,7 @@ import {
 import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0x61f42ca514f4c945635b42efa7df76b9260db4db9e4268e39f88b30d7dea22eb"
+export const MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
 
@@ -33,6 +33,8 @@ export const PEPE_FEEDER_ADDRESS =
     "ed82efbfade01083ffa8f64664c86af39282c9f084877066ae72b635e77718f0"
 export const DOGE_FEEDER_ADDRESS =
     "31775e1d6897129e8a84eeba975778fb50015b88039e9bc140bbd839694ac0ae"
+export const ST_APT_FEEDER_ADDRESS = 
+    "8a893dd9285c274e9e903d45269dff8f258d471046aba3c7c5037d2609877931"
 
 export const formatAptosDecimal = (value: number, decimals: number = 8) => {
     return Number((value * Math.pow(10, decimals)).toFixed(0));
@@ -45,7 +47,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0xd15db54256efe8c3c6b4aad77bce5361398a8b505056f2d96c8935052c83fe78'
+const PRIVATE_KEY = '0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -53,6 +55,7 @@ const singer = Account.fromPrivateKey({
 
 const MOCK_USDC_COIN_STORE = `0x1::coin::CoinStore<${coinAddress}::usdc::USDC>`
 const MOCK_USDT_COIN_STORE = `0x1::coin::CoinStore<${coinAddress}::usdt::USDT>`
+const MOCK_ST_APT_COIN_STORE = `0x1::coin::CoinStore<${coinAddress}::st_apt::ST_APT>`
 const MOCK_LP_COIN_STORE = `0x1::coin::CoinStore<${moduleAddress}::lp::LP>`
 
 //vault
@@ -61,6 +64,7 @@ const USDC_VAULT_ADDRESS = `${coinAddress}::usdc::USDC`
 const USDT_VAULT_ADDRESS = `${coinAddress}::usdt::USDT`
 const BTC_VAULT_ADDRESS = `${coinAddress}::btc::BTC`
 const ETH_VAULT_ADDRESS = `${coinAddress}::ETH::ETH`
+const ST_APT_VAULT_ADDRESS = `${coinAddress}::st_apt::ST_APT`
 //symbol
 const BTC_SYMBOL_ADDRESS = `${coinAddress}::btc::BTC`
 const ETH_SYMBOL_ADDRESS = `${coinAddress}::ETH::ETH`
@@ -78,50 +82,60 @@ const SIDE_SHORT = `${moduleAddress}::pool::SHORT`
 const FEE_ADDRESS = APTOS_COIN
 //list
 const VAULT_LIST = [
+    // {
+    //     name: 'APT',
+    //     vaultType: APTOS_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.05, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         APT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'USDC',
+    //     vaultType: USDC_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.3, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         USDC_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'USDT',
+    //     vaultType: USDT_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.3, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         USDT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'BTC',
+    //     vaultType: BTC_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.2, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         BTC_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
+    // {
+    //     name: 'ETH',
+    //     vaultType: ETH_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.15, 18),
+    //     max_interval: 2000,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         ETH_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
     {
-        name: 'APT',
-        vaultType: APTOS_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.05, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder:
-            APT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'USDC',
-        vaultType: USDC_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.3, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder:
-            USDC_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'USDT',
-        vaultType: USDT_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.3, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder:
-            USDT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'BTC',
-        vaultType: BTC_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.2, 18),
-        max_interval: 2000,
-        max_price_confidence: '18446744073709551615',
-        feeder:
-            BTC_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
-    {
-        name: 'ETH',
-        vaultType: ETH_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.15, 18),
+        name: 'ST_APT',
+        vaultType: ST_APT_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.10, 18),
         max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
