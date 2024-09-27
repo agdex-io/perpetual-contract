@@ -18,7 +18,7 @@ module mock::ETH {
         record: Table<address, u64>
     }
 
-    const MINT_AMOUNT: u64 = 20000000;
+    const MINT_AMOUNT: u64 = 10000000;
     const MINT_INTERVAL: u64 = 24*60*60;
     const EALREADY_MINTED: u64 = 1;
 
@@ -63,5 +63,20 @@ module mock::ETH {
         let fake_coin = coin::mint<ETH>(MINT_AMOUNT, &cap.mint_cap);
         coin::deposit(signer::address_of(sender), fake_coin);
         *table::borrow_mut(&mut rec.record, sender_addr) = now;
+    }
+
+    #[view]
+    public fun available_amount(user: address): u64 acquires MintRecord {
+        let rec = borrow_global<MintRecord>(@mock);
+        let now = timestamp::now_seconds();
+        if (!table::contains(&rec.record, user)) {
+            return MINT_AMOUNT
+        } else {
+            if ((now - *table::borrow(&rec.record, user)) > MINT_INTERVAL) {
+                return MINT_AMOUNT
+            } else {
+                return 0
+            }
+        }
     }
 }
