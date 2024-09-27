@@ -63,4 +63,19 @@ module mock::usdt {
         coin::deposit(signer::address_of(sender), fake_coin);
         *table::borrow_mut(&mut rec.record, sender_addr) = now;
     }
+
+    #[view]
+    public fun available_amount(user: address): u64 acquires MintRecord {
+        let rec = borrow_global<MintRecord>(@mock);
+        let now = timestamp::now_seconds();
+        if (!table::contains(&rec.record, user)) {
+            return MINT_AMOUNT
+        } else {
+            if ((now - *table::borrow(&rec.record, user)) > MINT_INTERVAL) {
+                return MINT_AMOUNT
+            } else {
+                return 0
+            }
+        }
+    }
 }
