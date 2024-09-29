@@ -9,7 +9,7 @@ import {
 import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+export const MODULE_ADDRESS = ""
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
 
@@ -112,16 +112,16 @@ const VAULT_LIST = [
     //         USDT_FEEDER_ADDRESS,
     //     param_multiplier: '800000000000000',
     // },
-    // {
-    //     name: 'BTC',
-    //     vaultType: BTC_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.2, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         BTC_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
+    {
+        name: 'BTC',
+        vaultType: BTC_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.2, 18),
+        max_interval: 2000,
+        max_price_confidence: '18446744073709551615',
+        feeder:
+            BTC_FEEDER_ADDRESS,
+        param_multiplier: '800000000000000',
+    },
     // {
     //     name: 'ETH',
     //     vaultType: ETH_VAULT_ADDRESS,
@@ -132,16 +132,16 @@ const VAULT_LIST = [
     //         ETH_FEEDER_ADDRESS,
     //     param_multiplier: '800000000000000',
     // },
-    {
-        name: 'ST_APT',
-        vaultType: ST_APT_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.10, 18),
-        max_interval: 21974967,
-        max_price_confidence: '18446744073709551615',
-        feeder:
-            ST_APT_FEEDER_ADDRESS,
-        param_multiplier: '800000000000000',
-    },
+    // {
+    //     name: 'ST_APT',
+    //     vaultType: ST_APT_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.10, 18),
+    //     max_interval: 21974967,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         ST_APT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
 ]
 const SYMBOL_LIST = [
     {
