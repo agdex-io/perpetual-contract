@@ -82,36 +82,36 @@ const SIDE_SHORT = `${moduleAddress}::pool::SHORT`
 const FEE_ADDRESS = APTOS_COIN
 //list
 const VAULT_LIST = [
-    // {
-    //     name: 'APT',
-    //     vaultType: APTOS_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.05, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         APT_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
-    // {
-    //     name: 'USDC',
-    //     vaultType: USDC_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.3, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         USDC_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
-    // {
-    //     name: 'USDT',
-    //     vaultType: USDT_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.3, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         USDT_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
+    {
+        name: 'APT',
+        vaultType: APTOS_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.05, 18),
+        max_interval: 2000,
+        max_price_confidence: '18446744073709551615',
+        feeder:
+            APT_FEEDER_ADDRESS,
+        param_multiplier: '800000000000000',
+    },
+    {
+        name: 'USDC',
+        vaultType: USDC_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.3, 18),
+        max_interval: 2000,
+        max_price_confidence: '18446744073709551615',
+        feeder:
+            USDC_FEEDER_ADDRESS,
+        param_multiplier: '800000000000000',
+    },
+    {
+        name: 'USDT',
+        vaultType: USDT_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.3, 18),
+        max_interval: 2000,
+        max_price_confidence: '18446744073709551615',
+        feeder:
+            USDT_FEEDER_ADDRESS,
+        param_multiplier: '800000000000000',
+    },
     // {
     //     name: 'BTC',
     //     vaultType: BTC_VAULT_ADDRESS,
@@ -122,26 +122,26 @@ const VAULT_LIST = [
     //         BTC_FEEDER_ADDRESS,
     //     param_multiplier: '800000000000000',
     // },
-    // {
-    //     name: 'ETH',
-    //     vaultType: ETH_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.15, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         ETH_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
     {
-        name: 'ST_APT',
-        vaultType: ST_APT_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.10, 18),
-        max_interval: 21974967,
+        name: 'ETH',
+        vaultType: ETH_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.15, 18),
+        max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
-            ST_APT_FEEDER_ADDRESS,
+            ETH_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
     },
+    {
+    //     name: 'ST_APT',
+    //     vaultType: ST_APT_VAULT_ADDRESS,
+    //     weight: formatAptosDecimal(0.10, 18),
+    //     max_interval: 21974967,
+    //     max_price_confidence: '18446744073709551615',
+    //     feeder:
+    //         ST_APT_FEEDER_ADDRESS,
+    //     param_multiplier: '800000000000000',
+    // },
 ]
 const SYMBOL_LIST = [
     {
