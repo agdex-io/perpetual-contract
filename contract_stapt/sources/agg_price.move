@@ -1,15 +1,22 @@
 module perpetual::agg_price {
     use aptos_std::math64::pow;
     use aptos_framework::coin;
+    use perpetual::rate::diff;
 
     use pyth::pyth::get_price_unsafe;
     use pyth::i64::{Self as pyth_i64};
     use pyth::price::{Self as pyth_price};
+    use pyth::price_identifier;
 
     use perpetual::decimal::{Self, Decimal};
     use pyth::price_identifier::PriceIdentifier;
+    use stapt_oracle::oracle::{stapt_usd_price, stapt_usd_price_decimal};
     
     friend perpetual::market;
+
+    const ST_APT_PRICE_ID: vector<u8> = x"8a893dd9285c274e9e903d45269dff8f258d471046aba3c7c5037d2609877931";
+
+    const EST_APT_PRICE_BEYOND_TOLERANCE: u64 = 50001;
 
     struct AggPrice has drop, store, copy {
         price: Decimal,
@@ -83,7 +90,30 @@ module perpetual::agg_price {
             decimal::mul_with_u64(decimal::from_u64(value), pow(10, (exp as u64)))
         };
 
+        if(price_identifier::get_bytes(&config.feeder) == ST_APT_PRICE_ID) {
+            let st_apt_price_decimal =
+                decimal::div_by_u64(decimal::from_u64(stapt_usd_price()), stapt_usd_price_decimal());
+            // TODO: config into agg_price
+            assert!(judge_tolerance(
+                price,
+                st_apt_price_decimal,
+                decimal::div(decimal::from_u64(90), decimal::from_u64((100)))
+            ), EST_APT_PRICE_BEYOND_TOLERANCE);
+        };
+
         AggPrice { price, precision: config.precision}
+    }
+
+    fun judge_tolerance(price_a: Decimal, price_b: Decimal, tolerance: Decimal): bool {
+        let diff_rate = decimal::div(price_a, price_b);
+        let one_hundread_percent = decimal::from_u64(1);
+        if (decimal::ge(&one_hundread_percent, &diff_rate)) {
+            let tolerance_rate = decimal::sub(one_hundread_percent, tolerance);
+            return decimal::ge(&tolerance_rate, &diff_rate)
+        } else {
+            let tolerance_rate = decimal::add(one_hundread_percent, tolerance);
+            return decimal::ge(&tolerance_rate, &diff_rate)
+        }
     }
 
     public fun price_of(self: &AggPrice): Decimal {
