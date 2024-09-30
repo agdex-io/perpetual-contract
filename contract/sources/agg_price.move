@@ -11,6 +11,11 @@ module perpetual::agg_price {
     
     friend perpetual::market;
 
+    enum SecondaryFeed has copy, drop, store {
+        SwitchBorad{a: u64},
+        Supra{b: u64}
+    }
+
     struct AggPrice has drop, store, copy {
         price: Decimal,
         precision: u64,
