@@ -132,7 +132,7 @@ const VAULT_LIST = [
             ETH_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
     },
-    {
+    // {
     //     name: 'ST_APT',
     //     vaultType: ST_APT_VAULT_ADDRESS,
     //     weight: formatAptosDecimal(0.10, 18),
