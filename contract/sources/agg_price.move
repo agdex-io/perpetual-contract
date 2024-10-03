@@ -1,4 +1,5 @@
 module perpetual::agg_price {
+    use std::option;
     use aptos_std::math64::pow;
     use aptos_framework::coin;
 
@@ -12,8 +13,8 @@ module perpetual::agg_price {
     friend perpetual::market;
 
     enum SecondaryFeed has copy, drop, store {
-        SwitchBorad{a: u64},
-        Supra{b: u64}
+        SwitchBorad{feed: address},
+        Supra{oracle_holder: address, feed: u32}
     }
 
     struct AggPrice has drop, store, copy {
@@ -26,6 +27,7 @@ module perpetual::agg_price {
         max_confidence: u64,
         precision: u64,
         feeder: PriceIdentifier,
+        second_feeder: option::Option<SecondaryFeed>
     }
 
     const ERR_INVALID_PRICE_FEEDER: u64 = 50001;
@@ -43,6 +45,7 @@ module perpetual::agg_price {
             max_confidence,
             precision: pow(10, (coin::decimals<CoinType>() as u64)),
             feeder: identifier,
+            second_feeder: option::none<SecondaryFeed>()
         }
     }
 
