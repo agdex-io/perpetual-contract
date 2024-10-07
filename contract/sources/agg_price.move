@@ -33,7 +33,8 @@ module perpetual::agg_price {
         max_confidence: u64,
         precision: u64,
         feeder: PriceIdentifier,
-        second_feeder: option::Option<SecondaryFeed>
+        second_feeder: option::Option<SecondaryFeed>,
+        tolerance: Decimal
     }
 
     const ERR_INVALID_PRICE_FEEDER: u64 = 50001;
@@ -43,6 +44,7 @@ module perpetual::agg_price {
     const ESECOND_FEEDER_NOT_EXIST: u64 = 50005;
     const ENOT_SUPRA_FEEDER: u64 = 50006;
     const ENOT_SWITCHBOARD_FEEDER: u64 = 50006;
+    const EDOUBLE_ORACLE_TOLERANCE_FAIL: u64 = 50007;
 
     public(friend) fun new_agg_price_config<CoinType>(
         max_interval: u64,
@@ -54,7 +56,8 @@ module perpetual::agg_price {
             max_confidence,
             precision: pow(10, (coin::decimals<CoinType>() as u64)),
             feeder: identifier,
-            second_feeder: option::none<SecondaryFeed>()
+            second_feeder: option::none<SecondaryFeed>(),
+            tolerance: decimal::one()
         }
     }
 
@@ -68,27 +71,60 @@ module perpetual::agg_price {
     public(friend) fun update_seconde_feeder_switchboard(
         config: &mut AggPriceConfig,
         feed: address,
+        tolerance: u64
     ) {
         let second_feeder = SecondaryFeed::SwitchBorad{
             oracle_holder: feed,
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
+        config.tolerance = decimal::from_u64(tolerance);
     }
 
     public(friend) fun update_seconde_feeder_supra(
         config: &mut AggPriceConfig,
         oracle_holder: address,
-        feed: u32
+        feed: u32,
+        tolerance: u64
     ) {
         let second_feeder = SecondaryFeed::Supra{
             oracle_holder,
             feed,
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
+        config.tolerance = decimal::from_u64(tolerance);
     }
 
     public fun from_price(config: &AggPriceConfig, price: Decimal): AggPrice {
         AggPrice { price, precision: config.precision }
+    }
+
+    public fun parse_config(
+        config: &AggPriceConfig,
+        timestamp: u64,
+    ): AggPrice {
+        let pyth_price = parse_pyth_feeder(config, timestamp);
+        if (!option::is_some(&config.second_feeder)) {
+            pyth_price
+        } else {
+            let second_feed = option::borrow(&config.second_feeder);
+            let second_agg_price = if (second_feed is SecondaryFeed::SwitchBorad) {
+                parse_switchboard_feeder(config, timestamp)
+            } else {
+                parse_switchboard_feeder(config, timestamp)
+            };
+            if (decimal::gt(&pyth_price.price, &second_agg_price.price)) {
+                assert!(decimal::gt(
+                    &decimal::div(second_agg_price.price, pyth_price.price),
+                        &config.tolerance
+                ), EDOUBLE_ORACLE_TOLERANCE_FAIL);
+            } else {
+                assert!(decimal::gt(
+                        &decimal::div(pyth_price.price, second_agg_price.price),
+                    &config.tolerance
+                ), EDOUBLE_ORACLE_TOLERANCE_FAIL);
+            };
+            pyth_price
+        }
     }
 
     public fun parse_pyth_feeder(
