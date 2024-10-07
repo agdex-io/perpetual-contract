@@ -133,31 +133,21 @@ module perpetual::agg_price {
         assert!(option::is_some(&config.second_feeder), ESECOND_FEEDER_NOT_EXIST);
         let second_feeder = option::borrow(&config.second_feeder);
         assert!(second_feeder is SecondaryFeed::Supra, ENOT_SUPRA_FEEDER);
-        let price = get_price_unsafe(config.feeder);
+        let (value, exp, update_timestamp, _round) = svalue_feed_holder::get_price(second_feeder.oracle_holder, second_feeder.feed);
         assert!(
-            pyth_price::get_timestamp(&price) + config.max_interval >= timestamp,
+            (update_timestamp as u64) + config.max_interval >= timestamp,
             ERR_PRICE_STALED,
         );
 
-        assert!(
-            pyth_price::get_conf(&price) <= config.max_confidence,
-            ERR_EXCEED_PRICE_CONFIDENCE,
-        );
+        // assert!(
+        //     pyth_price::get_conf(&price) <= config.max_confidence,
+        //     ERR_EXCEED_PRICE_CONFIDENCE,
+        // );
 
-        let value = pyth_price::get_price(&price);
-        // price can not be negative
-        let value = pyth_i64::get_magnitude_if_positive(&value);
         // price can not be zero
         assert!(value > 0, ERR_INVALID_PRICE_VALUE);
 
-        let exp = pyth_price::get_expo(&price);
-        let price = if (pyth_i64::get_is_negative(&exp)) {
-            let exp = pyth_i64::get_magnitude_if_negative(&exp);
-            decimal::div_by_u64(decimal::from_u64(value), pow(10, (exp as u64)))
-        } else {
-            let exp = pyth_i64::get_magnitude_if_positive(&exp);
-            decimal::mul_with_u64(decimal::from_u64(value), pow(10, (exp as u64)))
-        };
+        let price = decimal::div_by_u64(decimal::from_u128(value), pow(10, (exp as u64)));
 
         AggPrice { price, precision: config.precision}
     }
