@@ -10,13 +10,15 @@ module perpetual::agg_price {
     use switchboard::aggregator; // For reading aggregators
     use switchboard::math;
 
+    use supra_holder::svalue_feed_holder; // For reading aggregators
+
     use perpetual::decimal::{Self, Decimal};
     use pyth::price_identifier::PriceIdentifier;
     
     friend perpetual::market;
 
     enum SecondaryFeed has copy, drop, store {
-        SwitchBorad{feed: address},
+        SwitchBorad{oracle_holder: address},
         Supra{oracle_holder: address, feed: u32}
     }
 
@@ -38,6 +40,9 @@ module perpetual::agg_price {
     const ERR_PRICE_STALED: u64 = 50002;
     const ERR_EXCEED_PRICE_CONFIDENCE: u64 = 50003;
     const ERR_INVALID_PRICE_VALUE: u64 = 50004;
+    const ESECOND_FEEDER_NOT_EXIST: u64 = 50005;
+    const ENOT_SUPRA_FEEDER: u64 = 50006;
+    const ENOT_SWITCHBOARD_FEEDER: u64 = 50006;
 
     public(friend) fun new_agg_price_config<CoinType>(
         max_interval: u64,
@@ -65,7 +70,7 @@ module perpetual::agg_price {
         feed: address,
     ) {
         let second_feeder = SecondaryFeed::SwitchBorad{
-            feed,
+            oracle_holder: feed,
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
     }
@@ -125,6 +130,9 @@ module perpetual::agg_price {
         timestamp: u64,
     ): AggPrice {
 
+        assert!(option::is_some(&config.second_feeder), ESECOND_FEEDER_NOT_EXIST);
+        let second_feeder = option::borrow(&config.second_feeder);
+        assert!(second_feeder is SecondaryFeed::Supra, ENOT_SUPRA_FEEDER);
         let price = get_price_unsafe(config.feeder);
         assert!(
             pyth_price::get_timestamp(&price) + config.max_interval >= timestamp,
@@ -159,31 +167,25 @@ module perpetual::agg_price {
         timestamp: u64,
     ): AggPrice {
 
-        let price = get_price_unsafe(config.feeder);
+        assert!(option::is_some(&config.second_feeder), ESECOND_FEEDER_NOT_EXIST);
+        let second_feeder = option::borrow(&config.second_feeder);
+        assert!(second_feeder is SecondaryFeed::SwitchBorad, ENOT_SWITCHBOARD_FEEDER);
+        let price = aggregator::latest_value(second_feeder.oracle_holder);
+        let (value, exp, _neg) = math::unpack(price);
         assert!(
-            pyth_price::get_timestamp(&price) + config.max_interval >= timestamp,
+            aggregator::latest_round_timestamp(second_feeder.oracle_holder) + config.max_interval >= timestamp,
             ERR_PRICE_STALED,
         );
 
-        assert!(
-            pyth_price::get_conf(&price) <= config.max_confidence,
-            ERR_EXCEED_PRICE_CONFIDENCE,
-        );
+        // assert!(
+        //     pyth_price::get_conf(&price) <= config.max_confidence,
+        //     ERR_EXCEED_PRICE_CONFIDENCE,
+        // );
 
-        let value = pyth_price::get_price(&price);
-        // price can not be negative
-        let value = pyth_i64::get_magnitude_if_positive(&value);
         // price can not be zero
         assert!(value > 0, ERR_INVALID_PRICE_VALUE);
 
-        let exp = pyth_price::get_expo(&price);
-        let price = if (pyth_i64::get_is_negative(&exp)) {
-            let exp = pyth_i64::get_magnitude_if_negative(&exp);
-            decimal::div_by_u64(decimal::from_u64(value), pow(10, (exp as u64)))
-        } else {
-            let exp = pyth_i64::get_magnitude_if_positive(&exp);
-            decimal::mul_with_u64(decimal::from_u64(value), pow(10, (exp as u64)))
-        };
+        let price = decimal::div_by_u64(decimal::from_u128(value), pow(10, (exp as u64)));
 
         AggPrice { price, precision: config.precision}
     }
