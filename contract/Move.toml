@@ -9,7 +9,13 @@ perpetual = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
 [dev-addresses]
 
 [dependencies.Pyth]
-local = "../vendor"
+local = "../vendor/pyth"
+
+[dependencies.switchboard]
+local = "../vendor/switchboard"
+
+[dependencies.supra]
+local = "../vendor/supra"
 
 [dependencies.mock]
 local = "../Mock"

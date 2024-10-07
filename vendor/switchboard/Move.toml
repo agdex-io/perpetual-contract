@@ -1,0 +1,17 @@
+[package]
+name = "switchboard"
+version = "0.0.0"
+
+[addresses]
+std = '0x1'
+aptos_framework = '0x1'
+switchboard = '0xb68fc782f172f8df315814d25a0d80712e7543c168e596edc72cc3b163677375'
+
+[dev-addresses]
+Switchboard = '0x55'
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/move-stdlib/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
