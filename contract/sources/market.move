@@ -427,7 +427,27 @@ module perpetual::market {
         pool::replace_vault_price_config<Collateral>(admin, price_config);
     }
 
-    public entry fun replace_vault
+    public entry fun replace_vault_second_feeder_supra<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_supra<Collateral>(admin, oracle_holder, feed, tolerance, max_interval);
+
+    }
+
+    public entry fun replace_vault_second_feeder_switchboard<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_switchboard<Collateral>(admin, oracle_holder, tolerance);
+
+    }
 
     public entry fun add_new_symbol<Index, Direction>(
         admin: &signer,
@@ -508,17 +528,18 @@ module perpetual::market {
         tolerance: u64,
         max_interval: u64
     ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_supra<Index, Direction>(admin, oracle_holder, feed, tolerance, max_interval);
 
     }
 
     public entry fun replace_symbol_second_feeder_switchboard<Index, Direction>(
         admin: &signer,
-        feeder: vector<u8>,
-        max_interval: u64,
-        max_price_confidence: u64
-
+        oracle_holder: address,
+        tolerance: u64,
     ) {
-
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_switchboard<Index, Direction>(admin, oracle_holder, tolerance);
     }
 
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(

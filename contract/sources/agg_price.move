@@ -16,6 +16,7 @@ module perpetual::agg_price {
     use pyth::price_identifier::PriceIdentifier;
     
     friend perpetual::market;
+    friend perpetual::pool;
 
     enum SecondaryFeed has copy, drop, store {
         SwitchBorad{oracle_holder: address, tolerance: Decimal},
