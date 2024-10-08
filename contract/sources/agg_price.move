@@ -18,8 +18,8 @@ module perpetual::agg_price {
     friend perpetual::market;
 
     enum SecondaryFeed has copy, drop, store {
-        SwitchBorad{oracle_holder: address},
-        Supra{oracle_holder: address, feed: u32}
+        SwitchBorad{oracle_holder: address, tolerance: Decimal},
+        Supra{oracle_holder: address, tolerance: Decimal, max_interval: u64, feed: u32}
     }
 
     struct AggPrice has drop, store, copy {
@@ -75,6 +75,7 @@ module perpetual::agg_price {
     ) {
         let second_feeder = SecondaryFeed::SwitchBorad{
             oracle_holder: feed,
+            tolerance: decimal::from_u64(tolerance)
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
         config.tolerance = decimal::from_u64(tolerance);
@@ -84,14 +85,23 @@ module perpetual::agg_price {
         config: &mut AggPriceConfig,
         oracle_holder: address,
         feed: u32,
-        tolerance: u64
+        tolerance: u64,
+        max_interval: u64
     ) {
         let second_feeder = SecondaryFeed::Supra{
             oracle_holder,
+            tolerance: decimal::from_u64(tolerance),
+            max_interval,
             feed,
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
         config.tolerance = decimal::from_u64(tolerance);
+    }
+
+    public(friend) fun remove_second_feeder(
+        config: &mut AggPriceConfig
+    ) {
+        option::extract(&mut config.second_feeder);
     }
 
     public fun from_price(config: &AggPriceConfig, price: Decimal): AggPrice {
@@ -110,17 +120,17 @@ module perpetual::agg_price {
             let second_agg_price = if (second_feed is SecondaryFeed::SwitchBorad) {
                 parse_switchboard_feeder(config, timestamp)
             } else {
-                parse_switchboard_feeder(config, timestamp)
+                parse_supra_feeder(config, timestamp)
             };
             if (decimal::gt(&pyth_price.price, &second_agg_price.price)) {
                 assert!(decimal::gt(
                     &decimal::div(second_agg_price.price, pyth_price.price),
-                        &config.tolerance
+                        &second_feed.tolerance
                 ), EDOUBLE_ORACLE_TOLERANCE_FAIL);
             } else {
                 assert!(decimal::gt(
                         &decimal::div(pyth_price.price, second_agg_price.price),
-                    &config.tolerance
+                    &second_feed.tolerance
                 ), EDOUBLE_ORACLE_TOLERANCE_FAIL);
             };
             pyth_price
@@ -171,7 +181,7 @@ module perpetual::agg_price {
         assert!(second_feeder is SecondaryFeed::Supra, ENOT_SUPRA_FEEDER);
         let (value, exp, update_timestamp, _round) = svalue_feed_holder::get_price(second_feeder.oracle_holder, second_feeder.feed);
         assert!(
-            (update_timestamp as u64) + config.max_interval >= timestamp,
+            (update_timestamp as u64) + second_feeder.max_interval >= timestamp,
             ERR_PRICE_STALED,
         );
 
