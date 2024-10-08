@@ -1,20 +1,21 @@
 module perpetual::agg_price {
-    use aptos_std::math64::pow;
+    use aptos_std::math64::{Self, pow};
     use aptos_framework::coin;
-    use perpetual::rate::diff;
 
-    use pyth::pyth::get_price_unsafe;
+    use pyth::pyth::{Self, get_price_unsafe};
     use pyth::i64::{Self as pyth_i64};
     use pyth::price::{Self as pyth_price};
     use pyth::price_identifier;
 
     use perpetual::decimal::{Self, Decimal};
     use pyth::price_identifier::PriceIdentifier;
-    use stapt_oracle::oracle::{stapt_usd_price, stapt_usd_price_decimal};
-    
+    use amnis::stapt_token::stapt_price;
+
     friend perpetual::market;
 
+    const ST_APT_PRECISION: u64 = 100000000;
     const ST_APT_PRICE_ID: vector<u8> = x"8a893dd9285c274e9e903d45269dff8f258d471046aba3c7c5037d2609877931";
+    const APT_IDS: vector<u8> = x"03ae4db29ed4ae33d323568895aa00337e658e348b37509f5372ae51f0af00d5";
 
     const EST_APT_PRICE_BEYOND_TOLERANCE: u64 = 50001;
 
@@ -141,5 +142,42 @@ module perpetual::agg_price {
     #[test_only]
     public fun test_agg_price(price: Decimal, precision: u64): AggPrice {
         AggPrice { price, precision }
+    }
+
+    fun get_pyth_price(price_id: vector<u8>): u64 {
+        let price_identifier = price_id;
+        let price_id = price_identifier::from_byte_vec(price_identifier);
+        let price = pyth::get_price(price_id);
+        let expo = pyth::price::get_expo(&price);
+        let raw_price = pyth_i64::get_magnitude_if_positive(&pyth::price::get_price(&price));
+        (raw_price * ST_APT_PRECISION) / math64::pow(10, pyth::i64::get_magnitude_if_negative(&expo))
+    }
+
+    fun get_pyth_price_no_older(price_id: vector<u8>, max_age_secs: u64): u64 {
+        let price_identifier = price_id;
+        let price_id = price_identifier::from_byte_vec(price_identifier);
+        let price = pyth::get_price_no_older_than(price_id, max_age_secs);
+        let raw_price = pyth_i64::get_magnitude_if_positive(&pyth::price::get_price(&price));
+        let expo = pyth::price::get_expo(&price);
+        (raw_price * ST_APT_PRECISION) / math64::pow(10, pyth::i64::get_magnitude_if_negative(&expo))
+    }
+
+    #[view]
+    public fun apt_usd_price(): u64 {
+        get_pyth_price(
+            APT_IDS
+        )
+    }
+
+    #[view]
+    public fun stapt_usd_price_decimal(): u64 {
+        ST_APT_PRECISION
+    }
+
+    #[view]
+    public fun stapt_usd_price(): u64 {
+        let apt_price = apt_usd_price();
+        let stapt_apt_rate = stapt_price();
+        (((apt_price as u128) * (stapt_apt_rate as u128) / (ST_APT_PRECISION as u128)) as u64)
     }
 }

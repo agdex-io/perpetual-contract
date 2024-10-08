@@ -17,6 +17,9 @@ local = "../vendor/switchboard"
 [dependencies.supra]
 local = "../vendor/supra"
 
+[dependencies.Stapt]
+local = "../amnis"
+
 [dependencies.mock]
 local = "../Mock"
 
