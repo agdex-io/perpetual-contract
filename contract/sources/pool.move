@@ -292,6 +292,13 @@ module perpetual::pool {
         agg_price::update_seconde_feeder_switchboard(&mut vault.price_config, oracle_holder, tolerance);
     }
 
+    public(friend) fun remove_vault_second_feeder<Collateral>(
+        admin: &signer,
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        agg_price::remove_second_feeder(&mut vault.price_config);
+    }
+
     public(friend) fun update_vault_weight<Collateral>(
         admin: &signer,
         weight: u256
@@ -350,6 +357,14 @@ module perpetual::pool {
         let symbol =
             borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
         agg_price::update_seconde_feeder_switchboard(&mut symbol.price_config, oracle_holder, tolerance);
+    }
+
+    public(friend) fun remove_symbol_second_feeder<Index, Direction>(
+        admin: &signer,
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        agg_price::remove_second_feeder(&mut symbol.price_config);
     }
 
     public(friend) fun add_collateral_to_symbol<Index, Direction, Collateral>(

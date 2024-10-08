@@ -436,7 +436,6 @@ module perpetual::market {
     ) {
         admin::check_permission(signer::address_of(admin));
         pool::replace_vault_second_feeder_supra<Collateral>(admin, oracle_holder, feed, tolerance, max_interval);
-
     }
 
     public entry fun replace_vault_second_feeder_switchboard<Collateral>(
@@ -446,7 +445,13 @@ module perpetual::market {
     ) {
         admin::check_permission(signer::address_of(admin));
         pool::replace_vault_second_feeder_switchboard<Collateral>(admin, oracle_holder, tolerance);
+    }
 
+    public entry fun remove_vault_second_feeder<Collateral>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_vault_second_feeder<Collateral>(admin);
     }
 
     public entry fun add_new_symbol<Index, Direction>(
@@ -540,6 +545,13 @@ module perpetual::market {
     ) {
         admin::check_permission(signer::address_of(admin));
         pool::replace_symbol_second_feeder_switchboard<Index, Direction>(admin, oracle_holder, tolerance);
+    }
+
+    public entry fun remove_symbol_second_feeder<Index, Direction>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_symbol_second_feeder<Index, Direction>(admin);
     }
 
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(
