@@ -1,0 +1,13 @@
+[package]
+name = "amnis"
+version = "1.0.0"
+authors = []
+
+[addresses]
+
+[dev-addresses]
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+
+[dev-dependencies]
