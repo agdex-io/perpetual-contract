@@ -85,7 +85,7 @@ const VAULT_LIST = [
     {
         name: 'APT',
         vaultType: APTOS_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.05, 18),
+        weight: formatAptosDecimal(0.15, 18),
         max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
@@ -95,7 +95,7 @@ const VAULT_LIST = [
     {
         name: 'USDC',
         vaultType: USDC_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.3, 18),
+        weight: formatAptosDecimal(0.1, 18),
         max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
@@ -105,27 +105,27 @@ const VAULT_LIST = [
     {
         name: 'USDT',
         vaultType: USDT_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.3, 18),
+        weight: formatAptosDecimal(0.5, 18),
         max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
             USDT_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
     },
-    // {
-    //     name: 'BTC',
-    //     vaultType: BTC_VAULT_ADDRESS,
-    //     weight: formatAptosDecimal(0.2, 18),
-    //     max_interval: 2000,
-    //     max_price_confidence: '18446744073709551615',
-    //     feeder:
-    //         BTC_FEEDER_ADDRESS,
-    //     param_multiplier: '800000000000000',
-    // },
+    {
+        name: 'BTC',
+        vaultType: BTC_VAULT_ADDRESS,
+        weight: formatAptosDecimal(0.2, 18),
+        max_interval: 2000,
+        max_price_confidence: '18446744073709551615',
+        feeder:
+            BTC_FEEDER_ADDRESS,
+        param_multiplier: '800000000000000',
+    },
     {
         name: 'ETH',
         vaultType: ETH_VAULT_ADDRESS,
-        weight: formatAptosDecimal(0.15, 18),
+        weight: formatAptosDecimal(0.05, 18),
         max_interval: 2000,
         max_price_confidence: '18446744073709551615',
         feeder:
