@@ -22,7 +22,7 @@ module mock::ETH {
     const MINT_INTERVAL: u64 = 24*60*60;
     const EALREADY_MINTED: u64 = 1;
 
-    public entry fun init(sender: &signer) {
+    fun init_module(sender: &signer) {
         assert!(signer::address_of(sender) == @mock, 1);
         let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<ETH>(
             sender,
