@@ -20,7 +20,6 @@ module perpetual::pool {
 
     use mock::usdc::USDC;
     use mock::usdt::USDT;
-    use mock::st_apt::ST_APT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
     use mock::PEPE::PEPE;
@@ -1387,7 +1386,6 @@ module perpetual::pool {
         let total_weight = decimal::zero();
         // loop through all of vault
         let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
-        let (total_value, total_weight) = valuate_vault<ST_APT>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<USDC>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<USDT>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<BTC>(timestamp, total_value, total_weight);

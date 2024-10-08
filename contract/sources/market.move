@@ -26,7 +26,6 @@ module perpetual::market {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
-    use mock::st_apt::ST_APT;
 
     struct Market has key {
         vaults_locked: bool,
@@ -344,7 +343,6 @@ module perpetual::market {
         aptos_framework::managed_coin::register<USDT>(referrer);
         aptos_framework::managed_coin::register<BTC>(referrer);
         aptos_framework::managed_coin::register<ETH>(referrer);
-        aptos_framework::managed_coin::register<ST_APT>(referrer);
 
 
         let length = string::length(&code);
