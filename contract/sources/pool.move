@@ -344,6 +344,15 @@ module perpetual::pool {
         symbol.liquidate_enabled = liquidate_enabled;
     }
 
+    public(friend) fun set_vault_status<Collateral>(
+        admin: &signer,
+        enabled: bool
+    ) acquires Vault {
+        let valut =
+            borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        valut.enabled = enabled;
+    }
+
     public(friend) fun deposit<Collateral>(
         user: &signer,
         rebase_model: &RebaseFeeModel,
@@ -668,6 +677,11 @@ module perpetual::pool {
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+
+        // Pool errors are no need to be catched
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.open_enabled, ERR_OPEN_DISABLED);
+
         let index_price = agg_price::parse_pyth_feeder(
             &symbol.price_config,
             timestamp
