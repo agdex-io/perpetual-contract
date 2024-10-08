@@ -427,6 +427,8 @@ module perpetual::market {
         pool::replace_vault_price_config<Collateral>(admin, price_config);
     }
 
+    public entry fun replace_vault
+
     public entry fun add_new_symbol<Index, Direction>(
         admin: &signer,
         max_interval: u64,
@@ -497,6 +499,26 @@ module perpetual::market {
             );
         pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
         // TODO: emit event
+    }
+
+    public entry fun replace_symbol_second_feeder_supra<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+
+    }
+
+    public entry fun replace_symbol_second_feeder_switchboard<Index, Direction>(
+        admin: &signer,
+        feeder: vector<u8>,
+        max_interval: u64,
+        max_price_confidence: u64
+
+    ) {
+
     }
 
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(
