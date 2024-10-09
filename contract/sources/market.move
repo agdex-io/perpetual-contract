@@ -27,7 +27,6 @@ module perpetual::market {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
-    use mock::st_apt::ST_APT;
 
     struct Market has key {
         vaults_locked: bool,
@@ -351,7 +350,6 @@ module perpetual::market {
         aptos_framework::managed_coin::register<USDT>(referrer);
         aptos_framework::managed_coin::register<BTC>(referrer);
         aptos_framework::managed_coin::register<ETH>(referrer);
-        aptos_framework::managed_coin::register<ST_APT>(referrer);
 
 
         let length = string::length(&code);
@@ -434,6 +432,33 @@ module perpetual::market {
         pool::replace_vault_price_config<Collateral>(admin, price_config);
     }
 
+    public entry fun replace_vault_second_feeder_supra<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_supra<Collateral>(admin, oracle_holder, feed, tolerance, max_interval);
+    }
+
+    public entry fun replace_vault_second_feeder_switchboard<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_switchboard<Collateral>(admin, oracle_holder, tolerance);
+    }
+
+    public entry fun remove_vault_second_feeder<Collateral>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_vault_second_feeder<Collateral>(admin);
+    }
+
     public entry fun add_new_symbol<Index, Direction>(
         admin: &signer,
         max_interval: u64,
@@ -504,6 +529,34 @@ module perpetual::market {
             );
         pool::replace_symbol_price_config<Index, Direction>(admin, price_config);
         // TODO: emit event
+    }
+
+    public entry fun replace_symbol_second_feeder_supra<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_supra<Index, Direction>(admin, oracle_holder, feed, tolerance, max_interval);
+
+    }
+
+    public entry fun replace_symbol_second_feeder_switchboard<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_switchboard<Index, Direction>(admin, oracle_holder, tolerance);
+    }
+
+    public entry fun remove_symbol_second_feeder<Index, Direction>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_symbol_second_feeder<Index, Direction>(admin);
     }
 
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(

@@ -4,6 +4,6 @@
 faucet=`aptos account fund-with-faucet`
 echo "$faucet"
 
-deploy=`aptos move publish --package-dir ../ --assume-yes --included-artifacts none --skip-fetch-latest-git-deps`
+deploy=`aptos move publish --package-dir ../ --assume-yes --included-artifacts none --skip-fetch-latest-git-deps --move-2`
 echo "$deploy"
 # publish

@@ -5,12 +5,21 @@ upgrade_policy = "compatible"
 authors = []
 
 [addresses]
-perpetual = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+perpetual = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
 
 [dev-addresses]
 
 [dependencies.Pyth]
-local = "../vendor"
+local = "../vendor/pyth"
+
+[dependencies.Switchboard]
+local = "../vendor/switchboard"
+
+[dependencies.supra_holder]
+local = "../vendor/supra"
+
+[dependencies.amnis]
+local = "../amnis"
 
 [dependencies.mock]
 local = "../Mock"
