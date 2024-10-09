@@ -1,5 +1,4 @@
 module switchboard::math {
-    use switchboard::vec_utils;
     use std::vector;
     use std::error;
 
@@ -146,37 +145,6 @@ module switchboard::math {
 
     public fun will_multiplication_overflow(a: u128, b: u128): bool {
        b > 0 && a > MAX_VALUE_ALLOWED / b
-    }
-
-    public fun sort(v: &vector<SwitchboardDecimal>): vector<SwitchboardDecimal> {
-        let size = vector::length(v);
-        let alloc = vector::empty();
-        if (size <= 1) {
-            return *v
-        };
-
-        let (left, right) = vec_utils::esplit(v);
-        let left = sort(&left);
-        let right = sort(&right);
-   
-
-        loop {
-            let left_len = vector::length<SwitchboardDecimal>(&left);
-            let right_len = vector::length<SwitchboardDecimal>(&right);
-            if (left_len != 0 && right_len != 0) {
-                if (gt(vector::borrow<SwitchboardDecimal>(&right, 0), vector::borrow<SwitchboardDecimal>(&left, 0))) {
-                   vector::push_back<SwitchboardDecimal>(&mut alloc, vector::remove<SwitchboardDecimal>(&mut left, 0));
-                } else {
-                    vector::push_back<SwitchboardDecimal>(&mut alloc, vector::remove<SwitchboardDecimal>(&mut right, 0));
-                }
-            } else if (left_len != 0) {
-                vector::push_back<SwitchboardDecimal>(&mut alloc, vector::remove<SwitchboardDecimal>(&mut left, 0));
-            } else if (right_len != 0) {
-                vector::push_back<SwitchboardDecimal>(&mut alloc, vector::remove<SwitchboardDecimal>(&mut right, 0));
-            } else {
-                return alloc
-            };
-        }
     }
 
     public fun insertion_sort(v: &mut vector<SwitchboardDecimal>) {

@@ -4,17 +4,17 @@ version = "0.0.1"
 authors = []
 
 [addresses]
-perpetual = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+perpetual = "0xcd70d4fb09f4a09905c40c7a0a029030e56b6efb59d96a0460b9ab4cd740940b"
 
 [dev-addresses]
 
 [dependencies.Pyth]
 local = "../vendor/pyth"
 
-[dependencies.switchboard]
+[dependencies.Switchboard]
 local = "../vendor/switchboard"
 
-[dependencies.supra]
+[dependencies.supra_holder]
 local = "../vendor/supra"
 
 [dependencies.amnis]

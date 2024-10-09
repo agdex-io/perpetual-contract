@@ -1,10 +1,11 @@
 [package]
-name = "supra"
+name = "supra_holder"
 version = "1.0.0"
 authors = []
 
 [addresses]
-supra_holder = '0xb68fc782f172f8df315814d25a0d80712e7543c168e596edc72cc3b163677375'
+supra_holder = '0x5156d144fabd00d6b84141159cd82bc1e33a78f616af8cd9754890a9e26d7b97'
+
 [dev-addresses]
 
 [dependencies]
