@@ -9,9 +9,9 @@ import {
 import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0xcd70d4fb09f4a09905c40c7a0a029030e56b6efb59d96a0460b9ab4cd740940b"
+export const MODULE_ADDRESS = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
-export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
+export const COIN_ADDRESS = "0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378"
 
 export const APT_FEEDER_ADDRESS =
     "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e"
@@ -47,7 +47,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0x9c16c354bb6fbf32c0e5c4cbdf5275a7e6a829f7641b913585d49fed03d23a6b'
+const PRIVATE_KEY = '0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
