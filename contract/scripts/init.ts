@@ -9,7 +9,7 @@ import {
 import { time } from 'console'
 
 
-export const MODULE_ADDRESS = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+export const MODULE_ADDRESS = "0xcd70d4fb09f4a09905c40c7a0a029030e56b6efb59d96a0460b9ab4cd740940b"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
 export const COIN_ADDRESS = "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
 
@@ -47,7 +47,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0x5adbf0299c7ddd87a75455c03d1b56880eb89e0f1d99cc3f2e0d748aca9c18d4'
+const PRIVATE_KEY = '0x9c16c354bb6fbf32c0e5c4cbdf5275a7e6a829f7641b913585d49fed03d23a6b'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -86,7 +86,7 @@ const VAULT_LIST = [
         name: 'APT',
         vaultType: APTOS_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.15, 18),
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             APT_FEEDER_ADDRESS,
@@ -96,7 +96,7 @@ const VAULT_LIST = [
         name: 'USDC',
         vaultType: USDC_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.1, 18),
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             USDC_FEEDER_ADDRESS,
@@ -106,7 +106,7 @@ const VAULT_LIST = [
         name: 'USDT',
         vaultType: USDT_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.5, 18),
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             USDT_FEEDER_ADDRESS,
@@ -116,7 +116,7 @@ const VAULT_LIST = [
         name: 'BTC',
         vaultType: BTC_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.2, 18),
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             BTC_FEEDER_ADDRESS,
@@ -126,7 +126,7 @@ const VAULT_LIST = [
         name: 'ETH',
         vaultType: ETH_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.05, 18),
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             ETH_FEEDER_ADDRESS,
@@ -147,7 +147,7 @@ const SYMBOL_LIST = [
     {
         name: 'BTC',
         symbolType: BTC_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             BTC_FEEDER_ADDRESS,
@@ -165,7 +165,7 @@ const SYMBOL_LIST = [
     {
         name: 'ETH',
         symbolType: ETH_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             ETH_FEEDER_ADDRESS,
@@ -183,7 +183,7 @@ const SYMBOL_LIST = [
     {
         name: 'BNB',
         symbolType: BNB_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             BNB_FEEDER_ADDRESS,
@@ -201,7 +201,7 @@ const SYMBOL_LIST = [
     {
         name: 'SOL',
         symbolType: SOL_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             SOL_FEEDER_ADDRESS,
@@ -220,7 +220,7 @@ const SYMBOL_LIST = [
     {
         name: 'AVAX',
         symbolType: AVAX_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             AVAX_FEEDER_ADDRESS,
@@ -239,7 +239,7 @@ const SYMBOL_LIST = [
     {
         name: 'APT',
         symbolType: APTOS_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             APT_FEEDER_ADDRESS,
@@ -258,7 +258,7 @@ const SYMBOL_LIST = [
     {
         name: 'DOGE',
         symbolType: DOGE_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             DOGE_FEEDER_ADDRESS,
@@ -277,7 +277,7 @@ const SYMBOL_LIST = [
     {
         name: 'PEPE',
         symbolType: PEPE_SYMBOL_ADDRESS,
-        max_interval: 2000,
+        max_interval: 20,
         max_price_confidence: '18446744073709551615',
         feeder:
             PEPE_FEEDER_ADDRESS,
@@ -424,8 +424,8 @@ async function executeAddCollateralToSymbol() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    // await executeAddCollateralToSymbol()
-    await replaceVaultPriceFeeder()
+    await executeAddCollateralToSymbol()
+    // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
 }
 
