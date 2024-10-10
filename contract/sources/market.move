@@ -35,7 +35,6 @@ module perpetual::market {
         rebase_model: RebaseFeeModel,
         treasury_address: address,
         treasury_ratio: Rate,
-        order_min_fee: u64,
         referrals: Table<address, Referral>,                // referee --> referrer
         referrer_codes: Table<string::String, address>,     // referrer_code --> referrer_code
         referrers: Table<address, string::String>,          // referrer --> referrer_code
@@ -261,7 +260,6 @@ module perpetual::market {
             rebase_model: rebase_rate,
             treasury_address: @perpetual,
             treasury_ratio: rate::from_raw(250_000_000_000_000_000),
-            order_min_fee: 1000000,
             referrals: table::new<address, Referral>(),
             
             referrers: table::new<address, string::String>(),
@@ -694,7 +692,7 @@ module perpetual::market {
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
-        assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
+        // assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
@@ -856,7 +854,7 @@ module perpetual::market {
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
-        assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
+        // assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
@@ -1170,27 +1168,27 @@ module perpetual::market {
     }
 
     public entry fun force_clear_closed_position<Collateral, Index, Direction>(
-        admin: &signer,
-        user_account: address,
-        position_num: u64
-    ) acquires Market, PositionRecord {
+        // admin: &signer,
+        // user_account: address,
+        // position_num: u64
+    ) {
 
-        admin::check_permission(signer::address_of(admin));
-
-        let market = borrow_global_mut<Market>(@perpetual);
-        assert!(
-            !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
-        );
-
-        let position_id = PositionId<Collateral, Index, Direction> {
-            id: position_num,
-            owner: user_account,
-        };
-        let position_record =
-            borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
-        let position = table::remove(&mut position_record.positions, position_id);
-
-        positions::destroy_position<Collateral>(position);
+        // admin::check_permission(signer::address_of(admin));
+        //
+        // let market = borrow_global_mut<Market>(@perpetual);
+        // assert!(
+        //     !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
+        // );
+        //
+        // let position_id = PositionId<Collateral, Index, Direction> {
+        //     id: position_num,
+        //     owner: user_account,
+        // };
+        // let position_record =
+        //     borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        // let position = table::remove(&mut position_record.positions, position_id);
+        //
+        // positions::destroy_position<Collateral>(position);
     }
 
     public entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
@@ -1677,6 +1675,10 @@ module perpetual::market {
             );
         let withdraw_value = decimal::mul_with_rate(market_value, exchange_rate);
         pool::collateral_amount<Collateral>(withdraw_value)
+    }
+
+    public fun force_close_position<Collateral, Index, Direction>() {
+
     }
 
     public entry fun force_clear_open_position_order<Collateral, Index, Direction, Fee>(
