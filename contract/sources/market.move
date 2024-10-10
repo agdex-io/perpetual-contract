@@ -113,7 +113,6 @@ module perpetual::market {
         referrer: address,
         rebate_rate: Rate,
     }
-
     #[event]
     struct ReferrerCodeCreated has copy, drop, store {
         referrer: address,
