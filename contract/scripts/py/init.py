@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x61f42ca514f4c945635b42efa7df76b9260db4db9e4268e39f88b30d7dea22eb"
+contract_address = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
 
 class MarketClient(RestClient):
 
@@ -483,7 +483,7 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0xd15db54256efe8c3c6b4aad77bce5361398a8b505056f2d96c8935052c83fe78"
+        "0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922"
     )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
@@ -523,7 +523,7 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "LONG")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
-    # txn_hash = await rest_client.deposit(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC", 50000000, 0)
+    txn_hash = await rest_client.deposit(sender, "0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378::usdc::USDC", 5000000, 0)
     # txn_hash = await rest_client.withdraw(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 6000000, 0)
 
     # txn_hash = await rest_client.open_position(
@@ -620,14 +620,14 @@ async def main():
     #     sender.address(),
     #     13
     # )
-    txn_hash = await rest_client.liquidate_position(
-        sender,
-        "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
-        "0x1::aptos_coin::AptosCoin",
-        "LONG",
-        sender.address(),
-        6
-    )
+    # txn_hash = await rest_client.liquidate_position(
+    #     sender,
+    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+    #     "0x1::aptos_coin::AptosCoin",
+    #     "LONG",
+    #     sender.address(),
+    #     6
+    # )
 
     # txn_hash = await rest_client.replace_position_config(
     #     sender,

@@ -1,0 +1,17 @@
+[package]
+name = "supra_holder"
+version = "1.0.0"
+authors = []
+
+[addresses]
+supra_holder = '0x5156d144fabd00d6b84141159cd82bc1e33a78f616af8cd9754890a9e26d7b97'
+
+[dev-addresses]
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/move-stdlib/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token/", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+
+[dev-dependencies]

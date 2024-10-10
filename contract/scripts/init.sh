@@ -2,8 +2,8 @@
 
 # add admin to acl
 
-#add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::admin::add_acl --args 'address:["0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"]' --assume-yes`
-#echo "$add_admin"
+add_admin=`aptos move run --function-id 0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971::admin::add_acl --args 'address:["0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"]' --assume-yes`
+echo "$add_admin"
 
 # add new vault
 #add_new_vault=`aptos move run --function-id 0x8916cdadc2d1097eb278ad02193089a604909c65849d6bfaeb7fce87acba1677::market::add_new_vault --type-args 0x1::aptos_framework::aptos_coin::AptosCoin --args u256:100000000000000000 u64:20 u64:18446744073709551615 u8:44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e u256:800000000000000`
@@ -27,5 +27,5 @@
 
 # update rebase model
 
-add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_vault_weight --type-args 0x1::aptos_coin::AptosCoin --args u256:150000000000000000 --assume-yes`
-echo "$add_admin"
+# add_admin=`aptos move run --function-id 0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d::market::update_vault_weight --type-args 0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC --args u256:100000000000000000 --assume-yes`
+# echo "$add_admin"

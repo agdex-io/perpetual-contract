@@ -33,6 +33,13 @@ module perpetual::admin {
         };
     }
 
+    public entry fun remove_acl(sender: &signer, addr: address) acquires ACLBox {
+        let sender_addr = signer::address_of(sender);
+        assert!(exists<ACLBox>(sender_addr), EACL_BOX_NOT_EXISTS);
+        let acl_box = borrow_global_mut<ACLBox>(sender_addr);
+        acl::remove(&mut acl_box.box, addr);
+    }
+
     public fun check_permission(addr: address) acquires ACLBox {
         let acl_box = borrow_global<ACLBox>(@perpetual);
         assert!(acl::contains(&acl_box.box, addr), ENOT_ACCEPT_ADDRESS);

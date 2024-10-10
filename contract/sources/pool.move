@@ -20,7 +20,6 @@ module perpetual::pool {
 
     use mock::usdc::USDC;
     use mock::usdt::USDT;
-    // use mock::st_apt::ST_APT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
     use mock::PEPE::PEPE;
@@ -272,6 +271,33 @@ module perpetual::pool {
         vault.price_config = price_config;
     }
 
+    public(friend) fun replace_vault_second_feeder_supra<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        agg_price::update_seconde_feeder_supra(&mut vault.price_config, oracle_holder, feed, tolerance, max_interval);
+    }
+
+    public(friend) fun replace_vault_second_feeder_switchboard<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        agg_price::update_seconde_feeder_switchboard(&mut vault.price_config, oracle_holder, tolerance);
+    }
+
+    public(friend) fun remove_vault_second_feeder<Collateral>(
+        admin: &signer,
+    ) acquires Vault {
+        let vault = borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        agg_price::remove_second_feeder(&mut vault.price_config);
+    }
+
     public(friend) fun update_vault_weight<Collateral>(
         admin: &signer,
         weight: u256
@@ -310,6 +336,36 @@ module perpetual::pool {
         symbol.price_config = price_config;
     }
 
+    public(friend) fun replace_symbol_second_feeder_supra<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        agg_price::update_seconde_feeder_supra(&mut symbol.price_config, oracle_holder, feed, tolerance, max_interval);
+    }
+
+    public(friend) fun replace_symbol_second_feeder_switchboard<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        agg_price::update_seconde_feeder_switchboard(&mut symbol.price_config, oracle_holder, tolerance);
+    }
+
+    public(friend) fun remove_symbol_second_feeder<Index, Direction>(
+        admin: &signer,
+    ) acquires Symbol {
+        let symbol =
+            borrow_global_mut<Symbol<Index, Direction>>(signer::address_of(admin));
+        agg_price::remove_second_feeder(&mut symbol.price_config);
+    }
+
     public(friend) fun add_collateral_to_symbol<Index, Direction, Collateral>(
         admin: &signer
     ) acquires Symbol {
@@ -342,6 +398,15 @@ module perpetual::pool {
         symbol.open_enabled = open_enabled;
         symbol.decrease_enabled = decrease_enabled;
         symbol.liquidate_enabled = liquidate_enabled;
+    }
+
+    public(friend) fun set_vault_status<Collateral>(
+        admin: &signer,
+        enabled: bool
+    ) acquires Vault {
+        let valut =
+            borrow_global_mut<Vault<Collateral>>(signer::address_of(admin));
+        valut.enabled = enabled;
     }
 
     public(friend) fun deposit<Collateral>(
@@ -668,6 +733,11 @@ module perpetual::pool {
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
+
+        // Pool errors are no need to be catched
+        assert!(vault.enabled, ERR_VAULT_DISABLED);
+        assert!(symbol.open_enabled, ERR_OPEN_DISABLED);
+
         let index_price = agg_price::parse_pyth_feeder(
             &symbol.price_config,
             timestamp
@@ -1330,10 +1400,8 @@ module perpetual::pool {
         let total_weight = decimal::zero();
         // loop through all of vault
         let (total_value, total_weight) = valuate_vault<AptosCoin>(timestamp, total_value, total_weight);
-        // let (total_value, total_weight) = valuate_vault<ST_APT>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<USDC>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<USDT>(timestamp, total_value, total_weight);
-        let (total_value, total_weight) = valuate_vault<BTC>(timestamp, total_value, total_weight);
         let (total_value, total_weight) = valuate_vault<ETH>(timestamp, total_value, total_weight);
 
         (total_value, total_weight)

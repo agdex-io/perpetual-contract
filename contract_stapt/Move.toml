@@ -1,0 +1,25 @@
+[package]
+name = "perpetual"
+version = "0.0.1"
+authors = []
+
+[addresses]
+perpetual = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
+
+[dev-addresses]
+
+[dependencies.Pyth]
+local = "../vendor/pyth"
+
+[dependencies.amnis]
+local = "../amnis"
+
+[dependencies.mock]
+local = "../Mock"
+
+#[dependencies.AptosFramework]
+#git = "https://github.com/aptos-labs/aptos-core.git"
+#rev = "mainnet"
+#subdir = "aptos-move/framework/aptos-framework"
+
+[dev-dependencies]

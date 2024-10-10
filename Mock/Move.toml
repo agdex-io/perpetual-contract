@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-mock="0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5"
+mock="0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378"
 
 [dev-addresses]
 

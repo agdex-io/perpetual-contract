@@ -2,6 +2,7 @@ module perpetual::market {
     use std::string;
     use std::signer;
     use std::option;
+    use std::vector;
     use aptos_std::table::{Self, Table};
     use perpetual::rate::{Self, Rate};
     use perpetual::pool::{Self, LONG, SHORT};
@@ -26,7 +27,6 @@ module perpetual::market {
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
-    use mock::st_apt::ST_APT;
 
     struct Market has key {
         vaults_locked: bool,
@@ -212,9 +212,13 @@ module perpetual::market {
         amount: u64
     }
 
+    #[event]
+    struct VaultStatusUpdated<phantom Collateral> has drop, copy, store {
+        enabled: bool
+    }
+
     // === Errors ===
     // common errors
-    const ERR_FUNCTION_VERSION_EXPIRED: u64 = 10001;
     const ERR_MARKET_ALREADY_LOCKED: u64 = 10002;
     // referral errors
     const ERR_ALREADY_HAS_REFERRAL: u64 = 10003;
@@ -223,12 +227,6 @@ module perpetual::market {
     const ERR_CAN_NOT_CREATE_ORDER: u64 = 10005;
     const ERR_CAN_NOT_TRADE_IMMEDIATELY: u64 = 10006;
     // deposit, withdraw and swap errors
-    const ERR_VAULT_ALREADY_HANDLED: u64 = 10007;
-    const ERR_SYMBOL_ALREADY_HANDLED: u64 = 10008;
-    const ERR_VAULTS_NOT_TOTALLY_HANDLED: u64 = 10009;
-    const ERR_SYMBOLS_NOT_TOTALLY_HANDLED: u64 = 10010;
-    const ERR_UNEXPECTED_MARKET_VALUE: u64 = 10011;
-    const ERR_MISMATCHED_RESERVING_FEE_MODEL: u64 = 10012;
     const ERR_SWAPPING_SAME_COINS: u64 = 10013;
 
     // register_referrer_code errors
@@ -240,6 +238,12 @@ module perpetual::market {
     // add_referrer errors
     const ERR_REFERRER_CODE_NOT_CREATED: u64 = 10018;
     const ERR_REFERRER_NOT_REGISTER: u64 = 10019;
+    const ERR_ORDER_FEE_INSUFFICIENT: u64 = 10020;
+    const EVAAS_EMPTY: u64 = 10021;
+
+    const EEXCUTE_DECREASE_ORDER_FAILED: u64 = 10022;
+    const EEXECUTE_OPEN_POSITION_FAILED: u64 = 10023;
+    const EREFERRER_CAN_NOT_BE_SELF: u64 = 10024;
 
 
     fun init_module(admin: &signer,) {
@@ -344,7 +348,6 @@ module perpetual::market {
         aptos_framework::managed_coin::register<USDT>(referrer);
         aptos_framework::managed_coin::register<BTC>(referrer);
         aptos_framework::managed_coin::register<ETH>(referrer);
-        aptos_framework::managed_coin::register<ST_APT>(referrer);
 
 
         let length = string::length(&code);
@@ -352,7 +355,6 @@ module perpetual::market {
         assert!(length <= 10, ERR_REFERRER_CODE_LENGTH_TOO_LONG);
 
         let market = borrow_global_mut<Market>(@perpetual);
-
 
         assert!(
             !table::contains(&market.referrer_codes, code),
@@ -398,6 +400,8 @@ module perpetual::market {
 
         let referrer = table::borrow(&market.referrer_codes, code);
 
+        assert!(*referrer != signer::address_of(user), EREFERRER_CAN_NOT_BE_SELF);
+
         assert!(
             table::contains(&market.referrers, *referrer),
             ERR_REFERRER_NOT_REGISTER,
@@ -425,6 +429,33 @@ module perpetual::market {
                 max_interval, max_price_confidence, identifier
             );
         pool::replace_vault_price_config<Collateral>(admin, price_config);
+    }
+
+    public entry fun replace_vault_second_feeder_supra<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_supra<Collateral>(admin, oracle_holder, feed, tolerance, max_interval);
+    }
+
+    public entry fun replace_vault_second_feeder_switchboard<Collateral>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_vault_second_feeder_switchboard<Collateral>(admin, oracle_holder, tolerance);
+    }
+
+    public entry fun remove_vault_second_feeder<Collateral>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_vault_second_feeder<Collateral>(admin);
     }
 
     public entry fun add_new_symbol<Index, Direction>(
@@ -499,6 +530,34 @@ module perpetual::market {
         // TODO: emit event
     }
 
+    public entry fun replace_symbol_second_feeder_supra<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        feed: u32,
+        tolerance: u64,
+        max_interval: u64
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_supra<Index, Direction>(admin, oracle_holder, feed, tolerance, max_interval);
+
+    }
+
+    public entry fun replace_symbol_second_feeder_switchboard<Index, Direction>(
+        admin: &signer,
+        oracle_holder: address,
+        tolerance: u64,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::replace_symbol_second_feeder_switchboard<Index, Direction>(admin, oracle_holder, tolerance);
+    }
+
+    public entry fun remove_symbol_second_feeder<Index, Direction>(
+        admin: &signer
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::remove_symbol_second_feeder<Index, Direction>(admin);
+    }
+
     public entry fun add_collateral_to_symbol<Collateral, Index, Direction>(
         admin: &signer
     ) {
@@ -559,6 +618,21 @@ module perpetual::market {
         );
     }
 
+    public entry fun set_vault_status<Collateral>(
+        admin: &signer,
+        enabled: bool,
+    ) {
+        admin::check_permission(signer::address_of(admin));
+        pool::set_vault_status<Collateral>(
+            admin, enabled
+        );
+        emit(
+            VaultStatusUpdated<Collateral> {
+                enabled
+            },
+        );
+    }
+
     public entry fun replace_position_config<Index, Direction>(
         admin: &signer,
         max_leverage: u64,
@@ -613,11 +687,12 @@ module perpetual::market {
         vaas: vector<vector<u8>>
     ) acquires Market, WrappedPositionConfig, OrderRecord, PositionRecord {
         let user_account = signer::address_of(user);
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
+        // assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
@@ -774,11 +849,12 @@ module perpetual::market {
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
         let user_account = signer::address_of(user);
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
         );
+        // assert!(fee_amount >= market.order_min_fee, ERR_ORDER_FEE_INSUFFICIENT);
         let lp_supply_amount = lp_supply_amount();
         let timestamp = timestamp::now_seconds();
         let long = parse_direction<Direction>();
@@ -931,7 +1007,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let timestamp = timestamp::now_seconds();
         let user_account = signer::address_of(user);
 
@@ -989,7 +1065,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
             !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
@@ -1036,7 +1112,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(liquidator, vaas);
+        update_pyth_with_funder(liquidator, vaas);
         let liquidator_account = signer::address_of(liquidator);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1091,13 +1167,37 @@ module perpetual::market {
         positions::destroy_position<Collateral>(position);
     }
 
+    public entry fun force_clear_closed_position<Collateral, Index, Direction>(
+        // admin: &signer,
+        // user_account: address,
+        // position_num: u64
+    ) {
+
+        // admin::check_permission(signer::address_of(admin));
+        //
+        // let market = borrow_global_mut<Market>(@perpetual);
+        // assert!(
+        //     !market.vaults_locked && !market.symbols_locked, ERR_MARKET_ALREADY_LOCKED
+        // );
+        //
+        // let position_id = PositionId<Collateral, Index, Direction> {
+        //     id: position_num,
+        //     owner: user_account,
+        // };
+        // let position_record =
+        //     borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
+        // let position = table::remove(&mut position_record.positions, position_id);
+        //
+        // positions::destroy_position<Collateral>(position);
+    }
+
     public entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
         executor: &signer,
         owner: address,
         order_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, PositionRecord, OrderRecord {
-        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
+        update_pyth_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1189,17 +1289,7 @@ module perpetual::market {
             // executed order failed
             option::destroy_none(result);
             let _event = option::destroy_some(failure);
-            //TODO: maybe should panic here directly?
-            assert!(code == 0, code);
-            // emit order executed and open failed
-            // event::emit(OrderExecuted {
-            //     executor,
-            //     order_name,
-            //     claim: PositionClaimed {
-            //         position_name: option::none<PositionName<C, I, D>>(),
-            //         event,
-            //     },
-            // });
+            abort(EEXECUTE_OPEN_POSITION_FAILED)
         };
         // TODO: check currency here
         coin::destroy_zero(collateral);
@@ -1213,7 +1303,7 @@ module perpetual::market {
         position_num: u64,
         vaas: vector<vector<u8>>
     ) acquires Market, OrderRecord, PositionRecord {
-        pyth::pyth::update_price_feeds_with_funder(executor, vaas);
+        update_pyth_with_funder(executor, vaas);
         let executor_account = signer::address_of(executor);
         let market = borrow_global_mut<Market>(@perpetual);
         assert!(
@@ -1300,10 +1390,8 @@ module perpetual::market {
             let _event = option::destroy_some(failure);
 
             //TODO: assert! maybe abort directly?
+            abort(EEXCUTE_DECREASE_ORDER_FAILED)
 
-            emit(
-                OrderExecuted<Collateral, Index, Direction> { executor: executor_account }
-            );
         };
 
         coin::deposit(executor_account, fee);
@@ -1356,7 +1444,7 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, market_value,) = finalize_market_valuation();
 
@@ -1398,7 +1486,7 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, market_value,) =
             finalize_market_valuation();
@@ -1435,6 +1523,13 @@ module perpetual::market {
         );
         emit(VaultOperateAddressEvent<Collateral> { user: signer::address_of(user) });
 
+    }
+
+    fun update_pyth_with_funder(user: &signer, vaas: vector<vector<u8>>) {
+        assert!(vector::length(&vaas) > 0 && vector::length(vector::borrow(&vaas, 0)) > 0, EVAAS_EMPTY);
+        let pyth_fee = pyth::pyth::get_update_fee(&vaas);
+        let fee = coin::withdraw<AptosCoin>(user, pyth_fee);
+        pyth::pyth::update_price_feeds(vaas, fee);
     }
 
     #[view]
@@ -1479,11 +1574,15 @@ module perpetual::market {
         min_amount_out: u64,
         vaas: vector<vector<u8>>
     ) acquires Market {
-        pyth::pyth::update_price_feeds_with_funder(user, vaas);
+        update_pyth_with_funder(user, vaas);
         assert!(
             type_info::type_name<Source>() != type_info::type_name<Destination>(),
             ERR_SWAPPING_SAME_COINS,
         );
+
+        aptos_framework::managed_coin::register<Source>(user);
+        aptos_framework::managed_coin::register<Destination>(user);
+
         let user_account = signer::address_of(user);
         let market = borrow_global_mut<Market>(@perpetual);
         let (total_weight, total_vaults_value, _market_value,) =
@@ -1578,9 +1677,56 @@ module perpetual::market {
         pool::collateral_amount<Collateral>(withdraw_value)
     }
 
-    public fun force_close_position<Collateral, Index, Direction>() {}
+    public fun force_close_position<Collateral, Index, Direction>() {
 
-    public fun force_clear_closed_position<Collateral, Index, Direction>() {}
+    }
+
+    public entry fun force_clear_open_position_order<Collateral, Index, Direction, Fee>(
+        admin: &signer,
+        user_account: address,
+        order_num: u64
+    ) acquires OrderRecord {
+
+        admin::check_permission(signer::address_of(admin));
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.open_orders, order_id);
+        let (collateral, fee) = orders::destroy_open_position_order(order);
+
+        emit(OrderCleared<Collateral, Index, Direction> {});
+
+        coin::deposit(user_account, collateral);
+        coin::deposit(user_account, fee);
+
+    }
+
+
+    public entry fun force_clear_decrease_position_order<Collateral, Index, Direction, Fee>(
+        admin: &signer,
+        user_account: address,
+        order_num: u64
+    ) acquires OrderRecord {
+
+        admin::check_permission(signer::address_of(admin));
+
+        let order_id = OrderId<Collateral, Index, Direction, Fee> {
+            id: order_num,
+            owner: user_account
+        };
+        let order_record =
+            borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
+        let order = table::remove(&mut order_record.decrease_orders, order_id);
+        let fee = orders::destory_decrease_position_order(order);
+
+        emit(OrderCleared<Collateral, Index, Direction> {});
+
+        coin::deposit(user_account, fee);
+    }
 
     public fun lp_supply_amount(): Decimal {
         // LP decimal is 6
