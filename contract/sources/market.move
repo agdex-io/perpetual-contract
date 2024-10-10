@@ -245,6 +245,7 @@ module perpetual::market {
 
     const EEXCUTE_DECREASE_ORDER_FAILED: u64 = 10022;
     const EEXECUTE_OPEN_POSITION_FAILED: u64 = 10023;
+    const EREFERRER_CAN_NOT_BE_SELF: u64 = 10024;
 
 
     fun init_module(admin: &signer,) {
@@ -358,7 +359,6 @@ module perpetual::market {
 
         let market = borrow_global_mut<Market>(@perpetual);
 
-
         assert!(
             !table::contains(&market.referrer_codes, code),
             ERR_ALREADY_HAS_REFERRER_CODE,
@@ -402,6 +402,8 @@ module perpetual::market {
         );
 
         let referrer = table::borrow(&market.referrer_codes, code);
+
+        assert!(*referrer != signer::address_of(user), EREFERRER_CAN_NOT_BE_SELF);
 
         assert!(
             table::contains(&market.referrers, *referrer),
