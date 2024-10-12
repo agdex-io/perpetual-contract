@@ -25,7 +25,7 @@ module perpetual::model {
 
     public(friend) fun create_rebase_fee_model(): RebaseFeeModel {
         RebaseFeeModel {
-            base: rate::from_raw(10_000_000_000_000_000),
+            base: rate::from_raw(1_000_000_000_000_000),
             multiplier: decimal::zero()
         }
     }
