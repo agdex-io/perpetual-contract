@@ -35,6 +35,8 @@ export const DOGE_FEEDER_ADDRESS =
     "31775e1d6897129e8a84eeba975778fb50015b88039e9bc140bbd839694ac0ae"
 export const ST_APT_FEEDER_ADDRESS = 
     "8a893dd9285c274e9e903d45269dff8f258d471046aba3c7c5037d2609877931"
+export const APT_SWITCHBOARD= 
+    "7ac62190ba57b945975146f3d8725430ad3821391070b965b38206fe4cec9fd5"
 
 export const formatAptosDecimal = (value: number, decimals: number = 8) => {
     return Number((value * Math.pow(10, decimals)).toFixed(0));
@@ -80,6 +82,10 @@ const SIDE_LONG = `${moduleAddress}::pool::LONG`
 const SIDE_SHORT = `${moduleAddress}::pool::SHORT`
 //fee
 const FEE_ADDRESS = APTOS_COIN
+// sencond feeder switchboard type
+const SWITCHBRD_TYPE = `switchboard`
+// second feeder supra type
+const SUPRA_TYPE = `supra`
 //list
 const VAULT_LIST = [
     {
@@ -90,6 +96,11 @@ const VAULT_LIST = [
         max_price_confidence: '18446744073709551615',
         feeder:
             APT_FEEDER_ADDRESS,
+        seconde_feeder: {
+            type: SWITCHBRD_TYPE,
+            oracle_holder: APT_SWITCHBOARD,
+            tolerance: 90000000000000000
+        },
         param_multiplier: '800000000000000',
     },
     {
@@ -424,9 +435,10 @@ async function executeAddCollateralToSymbol() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    await executeAddCollateralToSymbol()
+    // await executeAddCollateralToSymbol()
     // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
+    await replaceVaultSecondPriceFeeder()
 }
 
 
@@ -460,6 +472,53 @@ async function replaceVaultPriceFeeder() {
     }
 }
 
+async function replaceVaultSecondPriceFeeder() {
+    for (const vault of VAULT_LIST) {
+        if ('seconde_feeder' in vault) {
+            let transaction;
+            if (vault.seconde_feeder?.type == SWITCHBRD_TYPE) {
+                transaction = await aptos.transaction.build.simple({
+                    sender: singer.accountAddress,
+                    data: {
+                        function: `${moduleAddress}::market::replace_vault_second_feeder_switchboard`,
+                        typeArguments: [vault.vaultType],
+                        functionArguments: [
+                            vault.seconde_feeder?.oracle_holder,
+                            vault.seconde_feeder?.tolerance,
+                        ],
+                    },
+                })
+            } else  {
+                transaction = await aptos.transaction.build.simple({
+                    sender: singer.accountAddress,
+                    data: {
+                        function: `${moduleAddress}::market::replace_vault_second_feeder_supra`,
+                        typeArguments: [vault.vaultType],
+                        functionArguments: [
+                            vault.seconde_feeder?.oracle_holder,
+                            vault.seconde_feeder?.tolerance,
+                            vault.max_price_confidence,
+                        ],
+                    },
+                })
+            }
+            const committedTransaction = await aptos.signAndSubmitTransaction({
+                signer: singer,
+                transaction,
+            })
+
+            const response = await aptos.waitForTransaction({
+                transactionHash: committedTransaction.hash
+            })
+            console.log(
+                `🚀 ~ Transaction submitted Replace Vault Feeder : ${vault.name}`,
+                response.success ? 'Success' : 'Failed'
+            )
+
+        }
+
+    }
+}
 
 async function replaceSymbolPriceFeeder() {
     for (const symbol of SYMBOL_LIST) {
