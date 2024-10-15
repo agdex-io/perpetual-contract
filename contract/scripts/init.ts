@@ -6,7 +6,9 @@ import {
     Ed25519PrivateKey,
     Network,
 } from '@aptos-labs/ts-sdk'
-import { time } from 'console'
+import { parse as yamlParse } from "yaml";
+import { promises as fsp } from "fs";
+
 
 
 export const MODULE_ADDRESS = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
@@ -49,7 +51,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-const PRIVATE_KEY = '0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922'
+let PRIVATE_KEY = '0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -432,15 +434,6 @@ async function executeAddCollateralToSymbol() {
     }
 }
 
-async function main() {
-    // await executeAddNewVault()
-    // await executeAddNewSymbol()
-    // await executeAddCollateralToSymbol()
-    // await replaceVaultPriceFeeder()
-    // await replaceSymbolPriceFeeder()
-    await replaceVaultSecondPriceFeeder()
-}
-
 
 async function replaceVaultPriceFeeder() {
     for (const vault of VAULT_LIST) {
@@ -553,6 +546,20 @@ async function replaceSymbolPriceFeeder() {
         }
     }
 }
+async function main() {
+    // await executeAddNewVault()
+    // await executeAddNewSymbol()
+    // await executeAddCollateralToSymbol()
+    // await replaceVaultPriceFeeder()
+    // await replaceSymbolPriceFeeder()
+    // await replaceVaultSecondPriceFeeder()
+}
+
 (async () => {
+    const apisConfigContent = await fsp.readFile("../.aptos/config.yaml", {
+        encoding: "utf8",
+    });
+    const config = yamlParse(apisConfigContent);
+    PRIVATE_KEY = config.profiles.default.private_key;
     await main()
 })()
