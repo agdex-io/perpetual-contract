@@ -11,6 +11,12 @@ perpetual = "0x8a212ced6c20fb3a24c0580c7a5d7fc4dff7acf67abe697d7b0b56891d8d7c5d"
 [dependencies.Pyth]
 local = "../vendor/pyth"
 
+[dependencies.Switchboard]
+local = "../vendor/switchboard"
+
+[dependencies.supra_holder]
+local = "../vendor/supra"
+
 [dependencies.amnis]
 local = "../amnis"
 
