@@ -624,7 +624,7 @@ module perpetual::market {
 
         let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
         let index_price =
-            agg_price::parse_pyth_feeder(
+            agg_price::parse_config(
                 &pool::symbol_price_config<Index, Direction>(),
                 timestamp,
             );
@@ -786,7 +786,7 @@ module perpetual::market {
         let collateral_price_threshold = decimal::from_raw(collateral_price_threshold);
         
         let index_price =
-            agg_price::parse_pyth_feeder(
+            agg_price::parse_config(
                 &pool::symbol_price_config<Index, Direction>(),
                 timestamp,
             );
