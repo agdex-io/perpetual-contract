@@ -79,7 +79,7 @@ module perpetual::agg_price {
     ) {
         let second_feeder = SecondaryFeed::SwitchBorad{
             oracle_holder: feed,
-            tolerance: decimal::from_u64(tolerance)
+            tolerance: decimal::from_raw((tolerance as u256))
         };
         option::swap_or_fill(&mut config.second_feeder, second_feeder);
         config.tolerance = decimal::from_u64(tolerance);
@@ -94,7 +94,7 @@ module perpetual::agg_price {
     ) {
         let second_feeder = SecondaryFeed::Supra{
             oracle_holder,
-            tolerance: decimal::from_u64(tolerance),
+            tolerance: decimal::from_raw((tolerance as u256)),
             max_interval,
             feed,
         };
