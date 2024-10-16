@@ -131,7 +131,7 @@ module perpetual::orders {
         treasury_ratio: Rate
     ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>, Coin<Fee>) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &pool::symbol_price_config<Index, Direction>(),
             timestamp
         );
@@ -181,7 +181,7 @@ module perpetual::orders {
         treasury_ratio: Rate
     ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>, Coin<Fee>) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &pool::symbol_price_config<Index, Direction>(),
             timestamp
         );

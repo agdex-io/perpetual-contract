@@ -427,7 +427,7 @@ module perpetual::pool {
         assert!(vault.enabled, ERR_VAULT_DISABLED);
         assert!(deposit_amount > 0, ERR_INVALID_DEPOSIT_AMOUNT);
 
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -534,7 +534,7 @@ module perpetual::pool {
         let treasury_reserve_value = decimal::mul_with_rate(fee_value, treasury_ratio);
         withdraw_value = decimal::sub(withdraw_value, fee_value);
 
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -622,7 +622,7 @@ module perpetual::pool {
         emit(VaultDepositEvent<Source>{amount: coin::value(&source)});
         coin::merge(&mut source_vault.liquidity, source);
 
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &source_vault.price_config,
             timestamp
         );
@@ -673,7 +673,7 @@ module perpetual::pool {
             ERR_INSUFFICIENT_SUPPLY,
         );
 
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &dest_vault.price_config,
             timestamp
         );
@@ -728,7 +728,7 @@ module perpetual::pool {
         treasury_ratio: Rate
     ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -738,7 +738,7 @@ module perpetual::pool {
         assert!(vault.enabled, ERR_VAULT_DISABLED);
         assert!(symbol.open_enabled, ERR_OPEN_DISABLED);
 
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &symbol.price_config,
             timestamp
         );
@@ -879,12 +879,12 @@ module perpetual::pool {
         treasury_ratio: Rate
     ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &symbol.price_config,
             timestamp
         );
@@ -1064,12 +1064,12 @@ module perpetual::pool {
         timestamp: u64
     ): (Coin<Collateral>, RedeemFromPositionEvent) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &symbol.price_config,
             timestamp
         );
@@ -1124,12 +1124,12 @@ module perpetual::pool {
         liquidator: address,
     ): (Coin<Collateral>, LiquidatePositionEvent) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &symbol.price_config,
             timestamp
         );
@@ -1442,7 +1442,7 @@ module perpetual::pool {
     ):(Decimal, Decimal) acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         assert!(vault.enabled, ERR_VAULT_DISABLED);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -1460,7 +1460,7 @@ module perpetual::pool {
     public(friend) fun vault_value<Collateral>(timestamp: u64): Decimal acquires Vault {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         assert!(vault.enabled, ERR_VAULT_DISABLED);
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -1475,7 +1475,7 @@ module perpetual::pool {
 
     fun valuate_symbol<Index, Direction>(timestamp: u64, lp_supply_amount: Decimal, total_value: SDecimal): SDecimal acquires Symbol {
         let symbol = borrow_global_mut<Symbol<Index, Direction>>(@perpetual);
-        let index_price = agg_price::parse_pyth_feeder(
+        let index_price = agg_price::parse_config(
             &symbol.price_config,
             timestamp
         );
@@ -1549,7 +1549,7 @@ module perpetual::pool {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let timestamp = timestamp::now_seconds();
 
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
@@ -1559,7 +1559,7 @@ module perpetual::pool {
     public(friend) fun collateral_amount<Collateral>(value: Decimal): u64 acquires Vault{
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let timestamp = timestamp::now_seconds();
-        let collateral_price = agg_price::parse_pyth_feeder(
+        let collateral_price = agg_price::parse_config(
             &vault.price_config,
             timestamp
         );
