@@ -552,7 +552,7 @@ async function main() {
     // await executeAddCollateralToSymbol()
     // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
-    // await replaceVaultSecondPriceFeeder()
+    await replaceVaultSecondPriceFeeder()
 }
 
 (async () => {
