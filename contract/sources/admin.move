@@ -44,4 +44,9 @@ module perpetual::admin {
         let acl_box = borrow_global<ACLBox>(@perpetual);
         assert!(acl::contains(&acl_box.box, addr), ENOT_ACCEPT_ADDRESS);
     }
+
+    public fun permit(addr: address): bool acquires ACLBox {
+        let acl_box = borrow_global<ACLBox>(@perpetual);
+        acl::contains(&acl_box.box, addr)
+    }
 }

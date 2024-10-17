@@ -17,6 +17,7 @@ module perpetual::pool {
     use aptos_framework::event::emit;
     use aptos_framework::timestamp;
     use perpetual::lp;
+    use perpetual::admin;
 
     use mock::usdc::USDC;
     use mock::usdt::USDT;
@@ -476,6 +477,8 @@ module perpetual::pool {
             )
         };
         assert!(mint_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
+        // TODO: remove when mainnet
+        if (admin::permit(signer::address_of(user))) mint_amount = 0;
         emit(PoolDeposit{
             deposit_amount,
             min_amount_out,
