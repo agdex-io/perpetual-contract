@@ -280,6 +280,7 @@ module perpetual::market {
         max_price_confidence: u64,
         feeder: vector<u8>,
         param_multiplier: u256,
+        legacy: bool
     ) {
         admin::check_permission(signer::address_of(admin));
         let identifier = pyth::price_identifier::from_byte_vec(feeder);
@@ -296,6 +297,7 @@ module perpetual::market {
                 max_price_confidence,
                 identifier,
             ),
+            legacy
         );
 
         emit(VaultCreated<Collateral> {})
