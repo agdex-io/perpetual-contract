@@ -1,81 +1,233 @@
+/// A 2-in-1 module that combines managed_fungible_asset and coin_example into one module that when deployed, the
+/// deployer will be creating a new managed fungible asset with the hardcoded supply config, name, symbol, and decimals.
+/// The address of the asset can be obtained via get_metadata(). As a simple version, it only deals with primary stores.
 module mock::usdt {
-
+    use aptos_framework::fungible_asset::{Self, MintRef, TransferRef, BurnRef, Metadata, FungibleAsset};
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::primary_fungible_store;
+    use aptos_framework::function_info;
+    use aptos_framework::dispatchable_fungible_asset;
+    use std::error;
     use std::signer;
-    use std::string;
-    use aptos_std::table::{Self, Table};
-    use aptos_framework::timestamp;
-    use aptos_framework::coin::{Self, BurnCapability, FreezeCapability, MintCapability};
+    use std::string::{Self, utf8};
+    use std::option;
 
-    struct USDT {}
+    /// Only fungible asset metadata owner can make changes.
+    const ENOT_OWNER: u64 = 1;
+    /// The FA coin is paused.
+    const EPAUSED: u64 = 2;
 
-    struct FakeMoneyCapabilities has key {
-        burn_cap: BurnCapability<USDT>,
-        freeze_cap: FreezeCapability<USDT>,
-        mint_cap: MintCapability<USDT>,
+    const ASSET_SYMBOL: vector<u8> = b"USDT";
+
+    struct USDT has copy, drop {}
+
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    /// Hold refs to control the minting, transfer and burning of fungible assets.
+    struct ManagedFungibleAsset has key {
+        mint_ref: MintRef,
+        transfer_ref: TransferRef,
+        burn_ref: BurnRef,
     }
 
-    struct MintRecord has key {
-        record: Table<address, u64>
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
+    /// Global state to pause the FA coin.
+    /// OPTIONAL
+    struct State has key {
+        paused: bool,
     }
 
-    const MINT_AMOUNT: u64 = 500000000;
-    const MINT_INTERVAL: u64 = 24*60*60;
-    const EALREADY_MINTED: u64 = 1;
-
-    fun init_module(sender: &signer) {
-        let (burn_cap, freeze_cap, mint_cap) = aptos_framework::coin::initialize<USDT>(
-            sender,
-            string::utf8(b"Mock USDT"),
-            string::utf8(b"USDT"),
-            6,
-            false,
+    /// Initialize metadata object and store the refs.
+    // :!:>initialize
+    fun init_module(admin: &signer) {
+        let constructor_ref = &object::create_named_object(admin, ASSET_SYMBOL);
+        primary_fungible_store::create_primary_store_enabled_fungible_asset(
+            constructor_ref,
+            option::none(),
+            utf8(b"USDT"), /* name */
+            utf8(ASSET_SYMBOL), /* symbol */
+            8, /* decimals */
+            utf8(b"http://example.com/favicon.ico"), /* icon */
+            utf8(b"http://example.com"), /* project */
         );
 
-        move_to(sender, FakeMoneyCapabilities{
-            burn_cap,
-            freeze_cap,
-            mint_cap
-        });
-        move_to(sender, MintRecord{
-            record: table::new<address, u64>()
-        })
-    }
+        // Create mint/burn/transfer refs to allow creator to manage the fungible asset.
+        let mint_ref = fungible_asset::generate_mint_ref(constructor_ref);
+        let burn_ref = fungible_asset::generate_burn_ref(constructor_ref);
+        let transfer_ref = fungible_asset::generate_transfer_ref(constructor_ref);
+        let metadata_object_signer = object::generate_signer(constructor_ref);
+        move_to(
+            &metadata_object_signer,
+            ManagedFungibleAsset { mint_ref, transfer_ref, burn_ref }
+        ); // <:!:initialize
 
-    public entry fun mint(sender: &signer) acquires FakeMoneyCapabilities, MintRecord {
-        let sender_addr = signer::address_of(sender);
-        let now = timestamp::now_seconds();
-        if (!coin::is_account_registered<USDT>(sender_addr)) {
-            coin::register<USDT>(sender);
-        };
-        let cap = borrow_global_mut<FakeMoneyCapabilities>(@mock);
-        if (sender_addr == @mock) {
-            let fake_coin = coin::mint<USDT>(10000000000000, &cap.mint_cap);
-            coin::deposit(signer::address_of(sender), fake_coin);
-            return
-        };
-        let rec = borrow_global_mut<MintRecord>(@mock);
-        if (!table::contains(&rec.record, sender_addr)) {
-            table::add(&mut rec.record, sender_addr, now);
-        } else {
-            assert!((now - *table::borrow(&rec.record, sender_addr)) > MINT_INTERVAL, EALREADY_MINTED);
-        };
-        let fake_coin = coin::mint<USDT>(MINT_AMOUNT, &cap.mint_cap);
-        coin::deposit(signer::address_of(sender), fake_coin);
-        *table::borrow_mut(&mut rec.record, sender_addr) = now;
+        // Create a global state to pause the FA coin and move to Metadata object.
+        move_to(
+            &metadata_object_signer,
+            State { paused: false, }
+        );
+
+        // Override the deposit and withdraw functions which mean overriding transfer.
+        // This ensures all transfer will call withdraw and deposit functions in this module
+        // and perform the necessary checks.
+        // This is OPTIONAL. It is an advanced feature and we don't NEED a global state to pause the FA coin.
+        let deposit = function_info::new_function_info(
+            admin,
+            string::utf8(b"usdt"),
+            string::utf8(b"deposit"),
+        );
+        let withdraw = function_info::new_function_info(
+            admin,
+            string::utf8(b"usdt"),
+            string::utf8(b"withdraw"),
+        );
+        dispatchable_fungible_asset::register_dispatch_functions(
+            constructor_ref,
+            option::some(withdraw),
+            option::some(deposit),
+            option::none(),
+        );
     }
 
     #[view]
-    public fun available_amount(user: address): u64 acquires MintRecord {
-        let rec = borrow_global<MintRecord>(@mock);
-        let now = timestamp::now_seconds();
-        if (!table::contains(&rec.record, user)) {
-            return MINT_AMOUNT
-        } else {
-            if ((now - *table::borrow(&rec.record, user)) > MINT_INTERVAL) {
-                return MINT_AMOUNT
-            } else {
-                return 0
-            }
-        }
+    /// Return the address of the managed fungible asset that's created when this module is deployed.
+    public fun get_metadata(): Object<Metadata> {
+        let asset_address = object::create_object_address(&@mock, ASSET_SYMBOL);
+        object::address_to_object<Metadata>(asset_address)
+    }
+
+    /// Deposit function override to ensure that the account is not denylisted and the FA coin is not paused.
+    /// OPTIONAL
+    public fun deposit<T: key>(
+        store: Object<T>,
+        fa: FungibleAsset,
+        transfer_ref: &TransferRef,
+    ) acquires State {
+        assert_not_paused();
+        fungible_asset::deposit_with_ref(transfer_ref, store, fa);
+    }
+
+    /// Withdraw function override to ensure that the account is not denylisted and the FA coin is not paused.
+    /// OPTIONAL
+    public fun withdraw<T: key>(
+        store: Object<T>,
+        amount: u64,
+        transfer_ref: &TransferRef,
+    ): FungibleAsset acquires State {
+        assert_not_paused();
+        fungible_asset::withdraw_with_ref(transfer_ref, store, amount)
+    }
+
+    // :!:>mint
+    /// Mint as the owner of metadata object.
+    public entry fun mint(admin: &signer, to: address, amount: u64) acquires ManagedFungibleAsset {
+        let asset = get_metadata();
+        let managed_fungible_asset = authorized_borrow_refs(admin, asset);
+        let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
+        let fa = fungible_asset::mint(&managed_fungible_asset.mint_ref, amount);
+        fungible_asset::deposit_with_ref(&managed_fungible_asset.transfer_ref, to_wallet, fa);
+    }// <:!:mint
+
+    /// Transfer as the owner of metadata object ignoring `frozen` field.
+    public entry fun transfer(admin: &signer, from: address, to: address, amount: u64) acquires ManagedFungibleAsset, State {
+        let asset = get_metadata();
+        let transfer_ref = &authorized_borrow_refs(admin, asset).transfer_ref;
+        let from_wallet = primary_fungible_store::primary_store(from, asset);
+        let to_wallet = primary_fungible_store::ensure_primary_store_exists(to, asset);
+        let fa = withdraw(from_wallet, amount, transfer_ref);
+        deposit(to_wallet, fa, transfer_ref);
+    }
+
+    /// Burn fungible assets as the owner of metadata object.
+    public entry fun burn(admin: &signer, from: address, amount: u64) acquires ManagedFungibleAsset {
+        let asset = get_metadata();
+        let burn_ref = &authorized_borrow_refs(admin, asset).burn_ref;
+        let from_wallet = primary_fungible_store::primary_store(from, asset);
+        fungible_asset::burn_from(burn_ref, from_wallet, amount);
+    }
+
+    /// Freeze an account so it cannot transfer or receive fungible assets.
+    public entry fun freeze_account(admin: &signer, account: address) acquires ManagedFungibleAsset {
+        let asset = get_metadata();
+        let transfer_ref = &authorized_borrow_refs(admin, asset).transfer_ref;
+        let wallet = primary_fungible_store::ensure_primary_store_exists(account, asset);
+        fungible_asset::set_frozen_flag(transfer_ref, wallet, true);
+    }
+
+    /// Unfreeze an account so it can transfer or receive fungible assets.
+    public entry fun unfreeze_account(admin: &signer, account: address) acquires ManagedFungibleAsset {
+        let asset = get_metadata();
+        let transfer_ref = &authorized_borrow_refs(admin, asset).transfer_ref;
+        let wallet = primary_fungible_store::ensure_primary_store_exists(account, asset);
+        fungible_asset::set_frozen_flag(transfer_ref, wallet, false);
+    }
+
+    /// Pause or unpause the transfer of FA coin. This checks that the caller is the pauser.
+    public entry fun set_pause(pauser: &signer, paused: bool) acquires State {
+        let asset = get_metadata();
+        assert!(object::is_owner(asset, signer::address_of(pauser)), error::permission_denied(ENOT_OWNER));
+        let state = borrow_global_mut<State>(object::create_object_address(&@mock, ASSET_SYMBOL));
+        if (state.paused == paused) { return };
+        state.paused = paused;
+    }
+
+    /// Assert that the FA coin is not paused.
+    /// OPTIONAL
+    fun assert_not_paused() acquires State {
+        let state = borrow_global<State>(object::create_object_address(&@mock, ASSET_SYMBOL));
+        assert!(!state.paused, EPAUSED);
+    }
+
+    /// Borrow the immutable reference of the refs of `metadata`.
+    /// This validates that the signer is the metadata object's owner.
+    inline fun authorized_borrow_refs(
+        owner: &signer,
+        asset: Object<Metadata>,
+    ): &ManagedFungibleAsset acquires ManagedFungibleAsset {
+        assert!(object::is_owner(asset, signer::address_of(owner)), error::permission_denied(ENOT_OWNER));
+        borrow_global<ManagedFungibleAsset>(object::object_address(&asset))
+    }
+
+    #[test(creator = @mock)]
+    fun test_basic_flow(
+        creator: &signer,
+    ) acquires ManagedFungibleAsset, State {
+        init_module(creator);
+        let creator_address = signer::address_of(creator);
+        let aaron_address = @0xface;
+
+        mint(creator, creator_address, 100);
+        let asset = get_metadata();
+        assert!(primary_fungible_store::balance(creator_address, asset) == 100, 4);
+        freeze_account(creator, creator_address);
+        assert!(primary_fungible_store::is_frozen(creator_address, asset), 5);
+        transfer(creator, creator_address, aaron_address, 10);
+        assert!(primary_fungible_store::balance(aaron_address, asset) == 10, 6);
+
+        unfreeze_account(creator, creator_address);
+        assert!(!primary_fungible_store::is_frozen(creator_address, asset), 7);
+        burn(creator, creator_address, 90);
+    }
+
+    #[test(creator = @mock, aaron = @0xface)]
+    #[expected_failure(abort_code = 0x50001, location = Self)]
+    fun test_permission_denied(
+        creator: &signer,
+        aaron: &signer
+    ) acquires ManagedFungibleAsset {
+        init_module(creator);
+        let creator_address = signer::address_of(creator);
+        mint(aaron, creator_address, 100);
+    }
+
+    #[test(creator = @mock)]
+    #[expected_failure(abort_code = 2, location = Self)]
+    fun test_paused(
+        creator: &signer,
+    ) acquires ManagedFungibleAsset, State {
+        init_module(creator);
+        let creator_address = signer::address_of(creator);
+        mint(creator, creator_address, 100);
+        set_pause(creator, true);
+        transfer(creator, creator_address, @0xface, 10);
     }
 }

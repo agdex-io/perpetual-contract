@@ -4,13 +4,13 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-mock="0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378"
+mock="0x69c513e5bb8fbbe8f82dab674ad477f760b7dd9920c838a7463682bfe2204a70"
 
 [dev-addresses]
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "6f83bc6d02207298b2dee91133d75538789bf582"
+rev = "main"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dev-dependencies]
