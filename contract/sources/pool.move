@@ -23,6 +23,7 @@ module perpetual::pool {
     use aptos_framework::timestamp;
     use perpetual::lp;
     use perpetual::admin;
+    use perpetual::type_registry;
 
     use mock::usdc::USDC;
     use mock::usdt::USDT;
@@ -33,7 +34,6 @@ module perpetual::pool {
     use mock::AVAX::AVAX;
     use mock::SOL::SOL;
     use mock::BNB::BNB;
-    use perpetual::type_registry;
     use perpetual::type_registry::get_metadata;
 
     friend perpetual::market;
@@ -140,8 +140,11 @@ module perpetual::pool {
     }
 
     struct DecreasePositionResult<phantom Collateral> {
-        to_trader: Coin<Collateral>,
-        rebate: Coin<Collateral>,
+        legacy: bool,
+        to_trader_legacy: Option<Coin<Collateral>>,
+        to_trader_fa: Option<FungibleAsset>,
+        rebate_legacy: Option<Coin<Collateral>>,
+        rebate_fa: Option<FungibleAsset>,
         event: DecreasePositionSuccessEvent,
     }
 
@@ -664,7 +667,8 @@ module perpetual::pool {
 
     public(friend) fun swap_in<Source>(
         model: &RebaseFeeModel,
-        source: Coin<Source>,
+        source_legacy: Option<Coin<Source>>,
+        source_fa: Option<FungibleAsset>,
         source_vault_value: Decimal,
         total_vaults_value: Decimal,
         total_weight: Decimal,
@@ -674,12 +678,22 @@ module perpetual::pool {
         let source_vault = borrow_global_mut<Vault<Source>>(@perpetual);
         assert!(source_vault.enabled, ERR_VAULT_DISABLED);
 
-        let source_amount = coin::value(&source);
-        let timestamp = timestamp::now_seconds();
-        assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
+        let source_amount = if (source_vault.legacy) {
+            let source = option::destroy_some(source_legacy);
+            let source_amount = coin::value(&source);
+            assert!(source_amount > 0, ERR_INVALID_SWAP_AMOUNT);
 
-        emit(VaultDepositEvent<Source>{amount: coin::value(&source)});
-        coin::merge(&mut source_vault.liquidity, source);
+            emit(VaultDepositEvent<Source>{amount: coin::value(&source)});
+            coin::merge(&mut source_vault.liquidity_legacy, source);
+            source_amount
+        } else {
+            let source = option::destroy_some(source_fa);
+            let source_amount = fungible_asset::amount(&source);
+            let addr = account::get_signer_capability_address(option::borrow(&source_vault.liquidity_store_account));
+            primary_fungible_store::deposit(addr, source);
+            source_amount
+        };
+        let timestamp = timestamp::now_seconds();
 
         let collateral_price = agg_price::parse_config(
             &source_vault.price_config,
@@ -703,8 +717,14 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut source_vault.liquidity, treasury_reserve_amount);
-        coin::deposit(treasury_address, treasury);
+        if (source_vault.legacy) {
+            let treasury = coin::extract(&mut source_vault.liquidity_legacy, treasury_reserve_amount);
+            coin::deposit(treasury_address, treasury);
+        } else {
+            let s = account::create_signer_with_capability(option::borrow(&source_vault.liquidity_store_account));
+            let fa = primary_fungible_store::withdraw(&s, get_metadata<Source>(), treasury_reserve_amount);
+            primary_fungible_store::deposit(treasury_address, fa);
+        };
 
         (
             decimal::sub(swap_value, source_fee_value),
@@ -721,7 +741,7 @@ module perpetual::pool {
         total_weight: Decimal,
         treasury_address: address,
         treasury_ratio: Rate
-    ): (Coin<Destination>, Decimal) acquires Vault {
+    ): (Option<Coin<Destination>>, Option<FungibleAsset>, Decimal) acquires Vault {
         let dest_vault = borrow_global_mut<Vault<Destination>>(@perpetual);
         assert!(dest_vault.enabled, ERR_VAULT_DISABLED);
         let timestamp = timestamp::now_seconds();
@@ -753,27 +773,43 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut dest_vault.liquidity, treasury_reserve_amount);
-        coin::deposit(treasury_address, treasury);
+        let liquidity_amount = if (dest_vault.legacy) {
+            let treasury = coin::extract(&mut dest_vault.liquidity_legacy, treasury_reserve_amount);
+            coin::deposit(treasury_address, treasury);
+            coin::value(&dest_vault.liquidity_legacy)
+        } else {
+            let s = account::create_signer_with_capability(option::borrow(&dest_vault.liquidity_store_account));
+            let fa = primary_fungible_store::withdraw(&s, get_metadata<Destination>(), treasury_reserve_amount);
+            primary_fungible_store::deposit(treasury_address, fa);
+            primary_fungible_store::balance(signer::address_of(&s), get_metadata<Destination>())
+        };
 
         let dest_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, swap_value)
         );
         assert!(dest_amount >= min_amount_out, ERR_AMOUNT_OUT_TOO_LESS);
         assert!(
-            dest_amount < coin::value(&dest_vault.liquidity),
+            dest_amount < liquidity_amount,
             ERR_INSUFFICIENT_LIQUIDITY,
         );
-        let dest_coin = coin::extract(&mut dest_vault.liquidity, dest_amount);
+        let (dest_coin_legacy, dest_coin_fa) = if(dest_vault.legacy) {
+            let dest_coin = coin::extract(&mut dest_vault.liquidity_legacy, dest_amount);
+            (option::some(dest_coin), option::none<FungibleAsset>())
+        } else {
+            let s = account::create_signer_with_capability(option::borrow(&dest_vault.liquidity_store_account));
+            let fa = primary_fungible_store::withdraw(&s, get_metadata<Destination>(), dest_amount);
+            (option::none<Coin<Destination>>(), option::some(fa))
+        };
         emit(VaultWithdrawEvent<Destination>{amount: dest_amount});
 
         (
-            dest_coin,
+            dest_coin_legacy,
+            dest_coin_fa,
             dest_fee_value,
         )
     }
 
-    public(friend) fun open_position<Collateral, Index, Direction>(
+    public(friend) fun open_position_fa<Collateral, Index, Direction>(
         position_config: &PositionConfig,
         collateral: FungibleAsset,
         collateral_price_threshold: Decimal,
@@ -979,8 +1015,10 @@ module perpetual::pool {
             };
             return (code, collateral, option::none(), option::some(event))
         };
-        let (position, open_fee, open_fee_amount_dec) =
+        let (_legacy, position, open_fee_legacy, open_fee_fa, open_fee_amount_dec) =
             positions::unwrap_open_position_result(option::destroy_some(result));
+        option::destroy_none(open_fee_fa);
+        let open_fee = option::destroy_some(open_fee_legacy);
         let open_fee_amount = coin::value(&open_fee);
 
         // compute rebate
@@ -1007,8 +1045,10 @@ module perpetual::pool {
 
         let collateral_amount = positions::collateral_amount(&position);
         let result = OpenPositionResult {
+            legacy: type_registry::registered<Collateral>(),
             position,
-            rebate,
+            rebate_legacy: option::some(rebate),
+            rebate_fa: option::none<FungibleAsset>(),
             event: OpenPositionSuccessEvent {
                 position_config: *position_config,
                 collateral_price: agg_price::price_of(&collateral_price),
@@ -1031,31 +1071,41 @@ module perpetual::pool {
     }
 
     public(friend) fun unwrap_open_position_result<C>(res: OpenPositionResult<C>): (
+        bool,
         Position<C>,
-        Coin<C>,
+        Option<Coin<C>>,
+        Option<FungibleAsset>,
         OpenPositionSuccessEvent,
     ) {
         let OpenPositionResult {
+            legacy,
             position,
-            rebate,
+            rebate_legacy,
+            rebate_fa,
             event,
         } = res;
 
-        (position, rebate, event)
+        (legacy, position, rebate_legacy, rebate_fa, event)
     }
 
     public(friend) fun unwrap_decrease_position_result<C>(res: DecreasePositionResult<C>): (
-        Coin<C>,
-        Coin<C>,
+        bool,
+        Option<Coin<C>>,
+        Option<Coin<C>>,
+        Option<FungibleAsset>,
+        Option<FungibleAsset>,
         DecreasePositionSuccessEvent,
     ) {
         let DecreasePositionResult {
-            to_trader,
-            rebate,
+            legacy,
+            to_trader_legacy,
+            rebate_legacy,
+            to_trader_fa,
+            rebate_fa,
             event,
         } = res;
 
-        (to_trader, rebate, event)
+        (legacy, to_trader_legacy, rebate_legacy, to_trader_fa, rebate_fa, event)
     }
 
     public(friend) fun decrease_position<Collateral, Index, Direction>(
@@ -1124,6 +1174,7 @@ module perpetual::pool {
         };
 
         let (
+            legacy,
             closed,
             has_profit,
             settled_amount,
@@ -1133,8 +1184,10 @@ module perpetual::pool {
             decrease_fee_value,
             reserving_fee_value,
             funding_fee_value,
-            to_vault,
-            to_trader,
+            to_vault_legacy,
+            to_trader_legacy,
+            to_vault_fa,
+            to_trader_fa,
         ) = positions::unwrap_decrease_position_result(option::destroy_some(result));
 
         // compute rebate
@@ -1147,8 +1200,18 @@ module perpetual::pool {
         let treasury_reserve_amount = decimal::floor_u64(
             agg_price::value_to_coins(&collateral_price, treasury_reserve_value)
         );
-        let treasury = coin::extract(&mut vault.liquidity, treasury_reserve_amount);
-        coin::deposit(treasury_address, treasury);
+        if (legacy) {
+            let treasury = coin::extract(&mut vault.liquidity_legacy, treasury_reserve_amount);
+            coin::deposit(treasury_address, treasury);
+
+        } else {
+            let treasury = primary_fungible_store::withdraw(
+                &account::create_signer_with_capability(option::borrow(&vault.liquidity_store_account)),
+                get_metadata<Collateral>(),
+                treasury_reserve_amount
+            );
+            primary_fungible_store::deposit(treasury_address, treasury);
+        };
 
         // update vault
         vault.reserved_amount = vault.reserved_amount - decreased_reserved_amount;
@@ -1156,11 +1219,33 @@ module perpetual::pool {
             vault.unrealised_reserving_fee_amount,
             reserving_fee_amount,
         );
-        let to_vault_amount = coin::value(&to_vault);
-        coin::merge(&mut vault.liquidity, to_vault);
+        let (to_vault_amount, vault_total) = if (legacy) {
+            let amount = coin::value(option::borrow(&to_vault_legacy));
+            coin::merge(&mut vault.liquidity_legacy, option::destroy_some(to_vault_legacy));
+            (amount, coin::value(&vault.liquidity_legacy))
+        } else {
+            let amount = fungible_asset::amount(option::borrow(&to_vault_fa));
+            let liquidity_addr =
+                account::get_signer_capability_address(option::borrow(&vault.liquidity_store_account));
+            primary_fungible_store::deposit(
+                liquidity_addr,
+                option::destroy_some(to_vault_fa)
+            );
+            (amount, primary_fungible_store::balance(liquidity_addr, get_metadata<Collateral>()))
+        };
         emit(VaultDepositEvent<Collateral>{amount: to_vault_amount});
-        assert!(coin::value(&vault.liquidity) > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
-        let rebate = coin::extract(&mut vault.liquidity, rebate_amount);
+        assert!(vault_total > rebate_amount, ERR_INSUFFICIENT_LIQUIDITY);
+        let (rebate_legacy, rebate_fa) = if (legacy) {
+            let rebate = coin::extract(&mut vault.liquidity_legacy, rebate_amount);
+            (option::some(rebate), option::none<FungibleAsset>())
+        } else {
+            let rebate = primary_fungible_store::withdraw(
+                 &account::create_signer_with_capability(option::borrow(&vault.liquidity_store_account)),
+                get_metadata<Collateral>(),
+                rebate_amount
+            );
+            (option::none<Coin<Collateral>>(), option::some(rebate))
+        };
 
         // update symbol
         symbol.opening_size = decimal::sub(symbol.opening_size, decrease_size);
@@ -1186,8 +1271,11 @@ module perpetual::pool {
         symbol.realised_pnl = sdecimal::add(symbol.realised_pnl, delta_realised_pnl);
 
         let result = DecreasePositionResult {
-            to_trader,
-            rebate,
+            legacy,
+            to_trader_legacy,
+            to_trader_fa,
+            rebate_legacy,
+            rebate_fa,
             event: DecreasePositionSuccessEvent {
                 collateral_price: agg_price::price_of(&collateral_price),
                 index_price: agg_price::price_of(&index_price),
@@ -1221,7 +1309,7 @@ module perpetual::pool {
         // refresh vault
         refresh_vault(vault, timestamp);
 
-        let decreased_reserved = positions::decrease_reserved_from_position(
+        let (decreased_reserved_legacy, decreased_reserved_fa) = positions::decrease_reserved_from_position(
             position,
             decrease_amount,
             vault.acc_reserving_rate,
@@ -1229,19 +1317,40 @@ module perpetual::pool {
         
         // update vault
         vault.reserved_amount = vault.reserved_amount - decrease_amount;
-        coin::merge(&mut vault.liquidity, decreased_reserved);
+        if(vault.legacy) {
+            coin::merge(&mut vault.liquidity_legacy, option::destroy_some(decreased_reserved_legacy));
+            option::destroy_none(decreased_reserved_fa);
+        } else {
+            primary_fungible_store::deposit(
+                account::get_signer_capability_address(option::borrow(&vault.liquidity_store_account)),
+                option::destroy_some(decreased_reserved_fa)
+            );
+            option::destroy_none(decreased_reserved_legacy)
+        };
 
         DecreaseReservedFromPositionEvent { decrease_amount }
 
     }
 
-    public(friend) fun pledge_in_position<Collateral>(
+    public(friend) fun pledge_in_position_legacy<Collateral>(
         position: &mut Position<Collateral>,
         pledge: Coin<Collateral>,
     ): PledgeInPositionEvent{
         let pledge_amount = coin::value(&pledge);
 
-        positions::pledge_in_position<Collateral>(position, pledge);
+        positions::pledge_in_position<Collateral>(position, option::some(pledge), option::none<FungibleAsset>());
+        PledgeInPositionEvent {
+            pledge_amount
+        }
+    }
+
+    public(friend) fun pledge_in_position_fa<Collateral>(
+        position: &mut Position<Collateral>,
+        pledge: FungibleAsset,
+    ): PledgeInPositionEvent{
+        let pledge_amount = fungible_asset::amount(&pledge);
+
+        positions::pledge_in_position<Collateral>(position, option::none<Coin<Collateral>>(), option::some(pledge));
         PledgeInPositionEvent {
             pledge_amount
         }
@@ -1253,7 +1362,7 @@ module perpetual::pool {
         redeem_amount: u64,
         lp_supply_amount: Decimal,
         timestamp: u64
-    ): (Coin<Collateral>, RedeemFromPositionEvent) acquires Vault, Symbol {
+    ): (bool, Option<Coin<Collateral>>, Option<FungibleAsset>, RedeemFromPositionEvent) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let collateral_price = agg_price::parse_config(
             &vault.price_config,
@@ -1281,7 +1390,7 @@ module perpetual::pool {
         );
 
         // redeem
-        let redeem = positions::redeem_from_position(
+        let (redeem_legacy, redeem_fa) = positions::redeem_from_position(
             position,
             &collateral_price,
             &index_price,
@@ -1304,7 +1413,7 @@ module perpetual::pool {
             redeem_amount,
         };
 
-        (redeem, event)
+        (vault.legacy, redeem_legacy, redeem_fa, event)
     }
 
     public(friend) fun liquidate_position<Collateral, Index, Direction>(
@@ -1313,7 +1422,7 @@ module perpetual::pool {
         lp_supply_amount: Decimal,
         timestamp: u64,
         liquidator: address,
-    ): (Coin<Collateral>, LiquidatePositionEvent) acquires Vault, Symbol {
+    ): (Option<Coin<Collateral>>, Option<FungibleAsset>, LiquidatePositionEvent) acquires Vault, Symbol {
         let vault = borrow_global_mut<Vault<Collateral>>(@perpetual);
         let collateral_price = agg_price::parse_config(
             &vault.price_config,
@@ -1347,8 +1456,10 @@ module perpetual::pool {
             reserving_fee_amount,
             reserving_fee_value,
             funding_fee_value,
-            to_vault,
-            to_liquidator,
+            to_vault_legacy,
+            to_liquidator_legacy,
+            to_vault_fa,
+            to_liquidator_fa,
         ) = positions::liquidate_position(
             position,
             &collateral_price,
@@ -1362,7 +1473,6 @@ module perpetual::pool {
             acc_reserving_rate: vault.acc_reserving_rate,
             acc_funding_rate: symbol.acc_funding_rate,
         });
-        
 
         // update vault
         vault.reserved_amount = vault.reserved_amount - reserved_amount;
@@ -1370,9 +1480,22 @@ module perpetual::pool {
             vault.unrealised_reserving_fee_amount,
             reserving_fee_amount,
         );
-        let to_vault_amount = coin::value(&to_vault);
-        emit(VaultDepositEvent<Collateral>{amount: to_vault_amount});
-        coin::merge(&mut vault.liquidity, to_vault);
+        let to_vault_amount = if(vault.legacy) {
+            let to_vault = option::destroy_some(to_vault_legacy);
+            option::destroy_none(to_vault_fa);
+            let amount = coin::value(&to_vault);
+            emit(VaultDepositEvent<Collateral>{amount});
+            coin::merge(&mut vault.liquidity_legacy, to_vault);
+            amount
+        } else {
+            let to_vault = option::destroy_some(to_vault_fa);
+            let amount = fungible_asset::amount(&to_vault);
+            option::destroy_none(to_vault_legacy);
+            let addr = account::get_signer_capability_address(option::borrow(&vault.liquidity_store_account));
+            primary_fungible_store::deposit(addr, to_vault);
+            emit(VaultDepositEvent<Collateral>{amount});
+            amount
+        };
 
         // update symbol
         symbol.opening_size = decimal::sub(symbol.opening_size, position_size);
@@ -1409,7 +1532,7 @@ module perpetual::pool {
             index_price
         });
 
-        (to_liquidator, event)
+        (to_liquidator_legacy, to_liquidator_fa, event)
     }
 
     public(friend) fun symbol_price_config<Index, Direction>(): AggPriceConfig acquires Symbol {
@@ -1501,9 +1624,15 @@ module perpetual::pool {
 
     public fun vault_supply_amount<C>(vault: &Vault<C>): Decimal {
         // liquidity_amount + reserved_amount + unrealised_reserving_fee_amount
+        let liquidity_amount = if (vault.legacy) {
+            coin::value(&vault.liquidity_legacy)
+        } else {
+            let addr = account::get_signer_capability_address(option::borrow(&vault.liquidity_store_account));
+            primary_fungible_store::balance(addr, get_metadata<C>())
+        };
         decimal::add(
             decimal::from_u64(
-                coin::value(&vault.liquidity) + vault.reserved_amount
+                liquidity_amount + vault.reserved_amount
             ),
             vault.unrealised_reserving_fee_amount,
         )

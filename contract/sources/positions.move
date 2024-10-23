@@ -3,7 +3,7 @@ module perpetual::positions {
     use std::bcs;
     use std::vector;
     use aptos_framework::signer;
-    use aptos_framework::account;
+    use aptos_framework::account::{Self, SignerCapability};
     use std::option::{Self, Option};
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::event::emit;
@@ -12,7 +12,6 @@ module perpetual::positions {
     use aptos_framework::fungible_asset::FungibleAsset;
     use aptos_framework::primary_fungible_store;
     use perpetual::type_registry::get_metadata;
-    use pyth::state::SignerCapability;
     use perpetual::rate::{Self, Rate};
     use perpetual::srate::{Self, SRate};
     use perpetual::decimal::{Self, Decimal};
@@ -159,7 +158,7 @@ module perpetual::positions {
         reserving_fee_amount: Decimal,
         reserving_fee_value: Decimal,
         funding_fee_value: SDecimal,
-        to_valut_amount: u64,
+        to_vault_amount: u64,
         to_liquidator_amount: u64,
     }
 
@@ -242,17 +241,17 @@ module perpetual::positions {
             return (ERR_LEVERAGE_TOO_LARGE, option::none())
         };
 
-        let (reserved_fa_signer, reserved_signercap) = generate_resource_account(fa_signer_cap, timestamp);
-        let (collateral_fa_account, collateral_signercap) = generate_resource_account(fa_signer_cap, timestamp);
+        let (reserved_fa_signer, reserved_signercap) = generate_resource_account<Collateral>(fa_signer_cap, timestamp);
+        let (collateral_fa_account, collateral_signercap) = generate_resource_account<Collateral>(fa_signer_cap, timestamp);
         // take away open fee
         let open_fee = fungible_asset::extract(&mut collateral, open_fee_amount);
         emit(VaultWithdrawEvent<Collateral>{amount: reserve_amount});
         let collateral_amount = fungible_asset::amount(&collateral);
         primary_fungible_store::deposit(signer::address_of(&collateral_fa_account), collateral);
         primary_fungible_store::transfer(
-            account::create_signer_with_capability(fa_signer_cap),
+            &account::create_signer_with_capability(fa_signer_cap),
             get_metadata<Collateral>(),
-            account::get_signer_capability_address(&reserved_fa_signer),
+            account::get_signer_capability_address(&reserved_signercap),
             reserve_amount
         );
 
@@ -300,7 +299,7 @@ module perpetual::positions {
     fun generate_resource_account<Collateral>(cap: &SignerCapability, timestamp: u64): (signer, SignerCapability) {
         let s = account::create_signer_with_capability(cap);
         let seed = randomness::bytes(1);
-        vector::append(&mut seed, bcs::to_bytes<u64>(timestamp));
+        vector::append(&mut seed, bcs::to_bytes<u64>(&timestamp));
         primary_fungible_store::ensure_primary_store_exists(signer::address_of(&s), get_metadata<Collateral>());
         account::create_resource_account(&s, seed)
     }
@@ -609,7 +608,7 @@ module perpetual::positions {
                 (
                     fungible_asset::zero(get_metadata<Collateral>()),
                     primary_fungible_store::withdraw(
-                        account::create_signer_with_capability(option::borrow(&position.reserved_fa)),
+                        &account::create_signer_with_capability(option::borrow(&position.reserved_fa)),
                             get_metadata<Collateral>(),
                             settled_amount
                     ),
@@ -617,7 +616,7 @@ module perpetual::positions {
             } else {
                 (
                     primary_fungible_store::withdraw(
-                        account::create_signer_with_capability(option::borrow(&position.collateral_fa)),
+                        &account::create_signer_with_capability(option::borrow(&position.collateral_fa)),
                         get_metadata<Collateral>(),
                         settled_amount
                     ),
@@ -636,15 +635,15 @@ module perpetual::positions {
                 );
                 fungible_asset::merge(
                     &mut to_vault,
-                    primary_fungible_store::withdraw(account::create_signer_with_capability(option::borrow(&position.reserved_fa)), get_metadata<Collateral>(), reserved_fa);
-                coin::merge(
+                    primary_fungible_store::withdraw(&account::create_signer_with_capability(option::borrow(&position.reserved_fa)), get_metadata<Collateral>(), reserved_fa));
+                fungible_asset::merge(
                     &mut to_trader,
-                primary_fungible_store::withdraw(account::create_signer_with_capability(option::borrow(&position.reserved_fa)), get_metadata<Collateral>(), reserved_fa);
+                primary_fungible_store::withdraw(&account::create_signer_with_capability(option::borrow(&position.reserved_fa)), get_metadata<Collateral>(), reserved_fa));
             };
             let to_vault_amount = fungible_asset::amount(&to_vault);
             let to_trader_amount = fungible_asset::amount(&to_trader);
             (option::none<Coin<Collateral>>(), option::none<Coin<Collateral>>(), option::some<FungibleAsset>(to_vault), option::some<FungibleAsset>(to_trader), to_vault_amount, to_trader_amount)
-        }
+        };
         emit(PositionDecreasePosition<Collateral> {
             closed,
             has_profit,
@@ -722,14 +721,14 @@ module perpetual::positions {
 
         if (position.legacy) {
             (
-                option::some(coin::extract(&mut position.reserved_legacy, decrease_amount)),
+                option::some(coin::extract(option::borrow_mut(&mut position.reserved_legacy), decrease_amount)),
                 option::none<FungibleAsset>()
             )
         } else {
             (
                 option::none<Coin<Collateral>>(),
                 option::some(primary_fungible_store::withdraw(
-                    account::create_signer_with_capability(option::borrow(&position.reserved_fa)),
+                    &account::create_signer_with_capability(option::borrow(&position.reserved_fa)),
                     get_metadata<Collateral>(),
                     decrease_amount
                 ))
@@ -956,16 +955,16 @@ module perpetual::positions {
             (option::some(to_liquidator), option::some(to_vault), option::none<FungibleAsset>(), option::none<FungibleAsset>())
         } else {
             let to_liquidator = primary_fungible_store::withdraw(
-                account::create_signer_with_capability(option::borrow(&position.collateral_fa)), get_metadata<Collateral>(), bonus_amount);
+                &account::create_signer_with_capability(option::borrow(&position.collateral_fa)), get_metadata<Collateral>(), bonus_amount);
             let to_vault = primary_fungible_store::withdraw(
-                account::create_signer_with_capability(option::borrow(&mut position.reserved_fa)), get_metadata<>(), reserved_amount);
+                &account::create_signer_with_capability(option::borrow(&mut position.reserved_fa)), get_metadata<Collateral>(), reserved_amount);
             fungible_asset::merge(&mut to_vault, primary_fungible_store::withdraw(
-                account::create_signer_with_capability(option::borrow(&position.collateral_fa)), get_metadata<Collateral>(), (collateral_amount - bonus_amount));
+                &account::create_signer_with_capability(option::borrow(&position.collateral_fa)), get_metadata<Collateral>(), (collateral_amount - bonus_amount)));
             to_vault_amount = fungible_asset::amount(&to_vault);
             to_liquidator_amount = fungible_asset::amount(&to_liquidator);
             (option::none<Coin<Collateral>>(), option::none<Coin<Collateral>>(), option::some<FungibleAsset>(to_liquidator), option::some<FungibleAsset>(to_vault))
 
-        }
+        };
         emit(PositionLiquidation<Collateral>{
             bonus_amount,
             collateral_amount,
@@ -975,7 +974,7 @@ module perpetual::positions {
             reserving_fee_amount,
             reserving_fee_value,
             funding_fee_value,
-            to_valut_amount,
+            to_vault_amount,
             to_liquidator_amount,
         });
 

@@ -17,16 +17,20 @@ module perpetual::market {
     use aptos_std::type_info;
     use perpetual::orders::{Self, OpenPositionOrder, DecreasePositionOrder};
     use aptos_framework::coin;
-    // use aptos_framework::coin::Coin;
+    use aptos_framework::coin::Coin;
     use aptos_framework::timestamp;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::emit;
+    use aptos_framework::fungible_asset;
+    use aptos_framework::fungible_asset::FungibleAsset;
+    use aptos_framework::primary_fungible_store;
     use perpetual::agg_price::AggPrice;
 
     use mock::usdc::USDC;
     use mock::usdt::USDT;
     use mock::btc::BTC;
     use mock::ETH::ETH;
+    use perpetual::type_registry::{Self, get_metadata};
 
     struct Market has key {
         vaults_locked: bool,
@@ -730,6 +734,24 @@ module perpetual::market {
 
         if (placed) {
             assert!(trade_level < 2, ERR_CAN_NOT_CREATE_ORDER);
+            let (collateral_legacy, collateral_fa) = if (type_registry::registered<Collateral>()) {
+                // fa
+                let collateral = primary_fungible_store::withdraw(user, get_metadata<Collateral>(), collateral_amount);
+                (option::none<Coin<Collateral>>(), option::some(collateral))
+            } else {
+                // legacy
+                let collateral = coin::withdraw<Collateral>(user, collateral_amount);
+                (option::some(collateral), option::none<FungibleAsset>())
+            };
+            let (fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
+                // fa
+                let fee = primary_fungible_store::withdraw(user, get_metadata<Fee>(), collateral_amount);
+                (option::none<Coin<Fee>>(), option::some(fee))
+            } else {
+                // legacy
+                let fee = coin::withdraw<Fee>(user, collateral_amount);
+                (option::some(fee), option::none<FungibleAsset>())
+            };
             let order =
                 orders::new_open_position_order<Collateral, Fee>(
                     timestamp,
@@ -738,8 +760,10 @@ module perpetual::market {
                     limited_index_price,
                     collateral_price_threshold,
                     position_config.inner,
-                    coin::withdraw<Collateral>(user, collateral_amount),
-                    coin::withdraw<Fee>(user, fee_amount),
+                    collateral_legacy,
+                    fee_legacy,
+                    collateral_fa,
+                    fee_fa
                 );
                 
             // add order into record
@@ -762,7 +786,28 @@ module perpetual::market {
             
             let (rebate_rate, referrer) = get_referral_data(&market.referrals, user_account);
 
-            let (code, collateral, result, _) = pool::open_position<Collateral, Index, Direction>(
+            let (code, result, collateral_remain) = if (type_registry::registered<Collateral>()) {
+                // fa
+                let (code, collateral, result, _) = pool::open_position_fa<Collateral, Index, Direction>(
+                    &position_config.inner,
+                    primary_fungible_store::withdraw(user, get_metadata<Collateral>(), collateral_amount),
+                    collateral_price_threshold,
+                    rebate_rate,
+                    long,
+                    open_amount,
+                    reserve_amount,
+                    lp_supply_amount,
+                    timestamp,
+                    market.treasury_address,
+                    market.treasury_ratio
+                );
+
+                let collateral_remain = fungible_asset::amount(&collateral);
+                primary_fungible_store::deposit(user_account, collateral);
+                (code, result, collateral_remain)
+            } else {
+                // legacy
+                let (code, collateral, result, _) = pool::open_position_legacy<Collateral, Index, Direction>(
                     &position_config.inner,
                     coin::withdraw<Collateral>(user, collateral_amount),
                     collateral_price_threshold,
@@ -776,13 +821,15 @@ module perpetual::market {
                     market.treasury_ratio
                 );
 
-            let collateral_remain = coin::value(&collateral);
-            coin::deposit(user_account, collateral);
+                let collateral_remain = coin::value(&collateral);
+                coin::deposit(user_account, collateral);
+                (code, result, collateral_remain)
+            };
             // should panic when the owner execute the order
             assert!(code == 0, code);
             //coin::destroy_zero(collateral);
 
-            let (position, rebate, _event) = pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
+            let (legacy, position, rebate_legacy, rebate_fa, _event) = pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
 
             // add position into record
             let position_record = borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
@@ -803,24 +850,52 @@ module perpetual::market {
 
             if (referrer != @0x0) {
                 // coin::deposit(referrer, rebate);
-                let rebate_amount = coin::value(&rebate);
-                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                let rebate_amount = if(type_registry::registered<Collateral>()) {
+                    // fa
+                    fungible_asset::amount(option::borrow(&rebate_fa))
+                } else {
+                    // legacy
+                    coin::value(option::borrow(&rebate_legacy))
+                };
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
 
-                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
-                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+                if (type_registry::registered<Collateral>()) {
+                    // fa
+                    let rebate = option::destroy_some(rebate_fa);
+                    option::destroy_none(rebate_legacy);
+                    let rebate_amount_coin1 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                if (coin::is_account_registered<Collateral>(referrer)) {
-                    coin::deposit(referrer, rebate_amount_coin1);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        primary_fungible_store::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        primary_fungible_store::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    primary_fungible_store::deposit(user_account, rebate_amount_coin2);
+
+                    primary_fungible_store::deposit(user_account, rebate);
+
                 } else {
-                    coin::deposit(market.treasury_address, rebate_amount_coin1);
-                };
-                coin::deposit(user_account, rebate_amount_coin2);
+                    // legacy
+                    let rebate = option::destroy_some(rebate_legacy);
+                    option::destroy_none(rebate_fa);
+                    let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(user_account, rebate);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        coin::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        coin::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    coin::deposit(user_account, rebate_amount_coin2);
+
+                    coin::deposit(user_account, rebate);
+
+                };
 
                 emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
@@ -831,7 +906,15 @@ module perpetual::market {
                 });
 
             } else {
-                coin::deposit(user_account, rebate);
+                if (type_registry::registered<Collateral>()) {
+                    primary_fungible_store::deposit(user_account, option::destroy_some(rebate_fa));
+                    option::destroy_none(rebate_legacy);
+                } else {
+                    // legacy
+                    coin::deposit(user_account, option::destroy_some(rebate_legacy));
+                    option::destroy_none(rebate_fa);
+
+                }
             };
 
             emit(OrderExecuted<Collateral, Index, Direction> { executor: user_account });
@@ -899,6 +982,15 @@ module perpetual::market {
         // 2: limit order can not placed, but it must be a stop loss order
         if (placed || !take_profit) {
             assert!(trade_level < 2, ERR_CAN_NOT_CREATE_ORDER);
+            let (fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
+                // fa
+                let fee = primary_fungible_store::withdraw(user, get_metadata<Fee>(), fee_amount);
+                (option::none<Coin<Fee>>(), option::some(fee))
+            } else {
+                // legacy
+                let fee = coin::withdraw<Fee>(user, fee_amount);
+                (option::some(fee), option::none<FungibleAsset>())
+            };
 
             let order =
                 orders::new_decrease_position_order(
@@ -907,7 +999,8 @@ module perpetual::market {
                     decrease_amount,
                     limited_index_price,
                     collateral_price_threshold,
-                    coin::withdraw<Fee>(user, fee_amount),
+                    fee_legacy,
+                    fee_fa,
                     position_num,
                 );
             // add order into record
@@ -955,36 +1048,73 @@ module perpetual::market {
             assert!(code == 0, code);
 
             let res = option::destroy_some(result);
-            let (to_trader, rebate, _event) =
+            let (legacy, to_trader_legacy, rebate_legacy, to_trader_fa, rebate_fa, _event) =
                 pool::unwrap_decrease_position_result<Collateral>(res);
+            let out_amount = if (type_registry::registered<Collateral>()) {
+                let out_amount = fungible_asset::amount(option::borrow(&to_trader_fa));
+                primary_fungible_store::deposit(user_account, option::destroy_some(to_trader_fa));
+                option::destroy_none(to_trader_legacy);
+                out_amount
+            } else {
+                let out_amount = coin::value(option::borrow(&to_trader_legacy));
+                coin::deposit<Collateral>(user_account, option::destroy_some(to_trader_legacy));
+                option::destroy_none(to_trader_fa);
+                out_amount
+            };
             emit(UserCollateralOut<Collateral, Index, Direction>{
                 user: user_account,
                 position_id: position_num,
-                amount: coin::value(&to_trader),
+                amount: out_amount,
             });
 
-            coin::deposit<Collateral>(user_account, to_trader);
-
             if (referrer != @0x0) {
-
-                let rebate_amount = coin::value(&rebate);
+                // coin::deposit(referrer, rebate);
+                let rebate_amount = if(type_registry::registered<Collateral>()) {
+                    // fa
+                    fungible_asset::amount(option::borrow(&rebate_fa))
+                } else {
+                    // legacy
+                    coin::value(option::borrow(&rebate_legacy))
+                };
                 let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
 
-                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
-                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+                if (type_registry::registered<Collateral>()) {
+                    // fa
+                    let rebate = option::destroy_some(rebate_fa);
+                    option::destroy_none(rebate_legacy);
+                    let rebate_amount_coin1 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                if (coin::is_account_registered<Collateral>(referrer)) {
-                    coin::deposit(referrer, rebate_amount_coin1);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        primary_fungible_store::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        primary_fungible_store::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    primary_fungible_store::deposit(user_account, rebate_amount_coin2);
+
+                    primary_fungible_store::deposit(user_account, rebate);
+
                 } else {
-                    coin::deposit(market.treasury_address, rebate_amount_coin1);
-                };
-                coin::deposit(user_account, rebate_amount_coin2);
+                    // legacy
+                    let rebate = option::destroy_some(rebate_legacy);
+                    option::destroy_none(rebate_fa);
+                    let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                coin::deposit(user_account, rebate);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        coin::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        coin::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    coin::deposit(user_account, rebate_amount_coin2);
+
+                    coin::deposit(user_account, rebate);
+
+                };
 
                 emit(ReferrerProfitExecute<Collateral, Index> {
                     user: user_account,
@@ -995,8 +1125,17 @@ module perpetual::market {
                 });
 
             } else {
-                coin::deposit(user_account, rebate);
+                if (type_registry::registered<Collateral>()) {
+                    primary_fungible_store::deposit(user_account, option::destroy_some(rebate_fa));
+                    option::destroy_none(rebate_legacy);
+                } else {
+                    // legacy
+                    coin::deposit(user_account, option::destroy_some(rebate_legacy));
+                    option::destroy_none(rebate_fa);
+
+                }
             };
+
 
             emit(PositionClaimed<Collateral, Index, Direction> {});
             emit(VaultOperateAddressEvent<Collateral> { user: user_account });
@@ -1049,9 +1188,21 @@ module perpetual::market {
         let position = table::borrow_mut(&mut position_record.positions, position_id);
 
         let _event =
-            pool::pledge_in_position(
-                position, coin::withdraw<Collateral>(user, pledge_num)
-            );
+            if (type_registry::registered<Collateral>()) {
+                // fa
+                pool::pledge_in_position_fa(
+                    position,
+                    primary_fungible_store::withdraw(
+                        user,
+                        get_metadata<Collateral>(),
+                        pledge_num
+                    ))
+            } else {
+                // legacy
+                pool::pledge_in_position_legacy(
+                    position, coin::withdraw<Collateral>(user, pledge_num)
+                )
+            };
 
         emit(UserCollateralIn<Collateral, Index, Direction>{
             user: user_account,
@@ -1086,7 +1237,7 @@ module perpetual::market {
             borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
         let position = table::borrow_mut(&mut position_record.positions, position_id);
 
-        let (redeem, _event) =
+        let (legacy, redeem_legacy,redeem_fa, _event) =
             pool::redeem_from_position<Collateral, Index, Direction>(
                 position,
                 long,
@@ -1094,14 +1245,24 @@ module perpetual::market {
                 lp_supply_amount,
                 timestamp,
             );
+        let amount = if (legacy) {
+            let amount = coin::value(option::borrow(&redeem_legacy));
+            coin::deposit(user_account, option::destroy_some(redeem_legacy));
+            option::destroy_none(redeem_fa);
+            amount
+        } else {
+            let amount = fungible_asset::amount(option::borrow(&redeem_fa));
+            primary_fungible_store::deposit(user_account, option::destroy_some(redeem_fa));
+            option::destroy_none(redeem_legacy);
+            amount
+
+        };
 
         emit(UserCollateralIn<Collateral, Index, Direction>{
             user: user_account,
             position_id: position_num,
-            amount: coin::value(&redeem)
+            amount
         });
-
-        coin::deposit(user_account, redeem);
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
         emit(VaultOperateAddressEvent<Collateral> { user: user_account });
@@ -1133,7 +1294,7 @@ module perpetual::market {
             borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
         let position = table::borrow_mut(&mut position_record.positions, position_id);
 
-        let (liquidation_fee, _event) =
+        let (liquidation_fee_legeacy, liquidation_fee_fa, _event) =
             pool::liquidate_position<Collateral, Index, Direction>(
                 position,
                 long,
@@ -1142,7 +1303,15 @@ module perpetual::market {
                 liquidator_account,
             );
 
-        coin::deposit(liquidator_account, liquidation_fee);
+        if (type_registry::registered<Collateral>()) {
+            // fa
+            primary_fungible_store::deposit(liquidator_account, option::destroy_some(liquidation_fee_fa));
+            option::destroy_none(liquidation_fee_legeacy);
+        } else {
+            // legacy
+            coin::deposit(liquidator_account, option::destroy_some(liquidation_fee_legeacy));
+            option::destroy_none(liquidation_fee_fa);
+        };
 
         emit(PositionClaimed<Collateral, Index, Direction> {});
         emit(VaultOperateAddressEvent<Collateral> { user: owner });
@@ -1218,7 +1387,7 @@ module perpetual::market {
         
         let open_amount = orders::open_amount_of(order);
         let (rebate_rate, referrer) = get_referral_data(&market.referrals, owner);
-        let (code, collateral, result, failure, fee) =
+        let (code, collateral_legacy, collateral_fa, result, failure, fee_legacy, fee_fa) =
             orders::execute_open_position_order<Collateral, Index, Direction, Fee>(
                 order,
                 rebate_rate,
@@ -1229,7 +1398,7 @@ module perpetual::market {
                 market.treasury_ratio
             );
         if (code == 0) {
-            let (position, rebate, _event) =
+            let (legacy, position, rebate_legacy, rebate_fa, _event) =
                 pool::unwrap_open_position_result(option::destroy_some(result));
 
             let position_record =
@@ -1251,25 +1420,54 @@ module perpetual::market {
                 position,
             );
             position_record.creation_num = position_record.creation_num + 1;
-
             if (referrer != @0x0) {
-                let rebate_amount = coin::value(&rebate);
-                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                // coin::deposit(referrer, rebate);
+                let rebate_amount = if(type_registry::registered<Collateral>()) {
+                    // fa
+                    fungible_asset::amount(option::borrow(&rebate_fa))
+                } else {
+                    // legacy
+                    coin::value(option::borrow(&rebate_legacy))
+                };
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
 
-                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
-                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+                if (type_registry::registered<Collateral>()) {
+                    // fa
+                    let rebate = option::destroy_some(rebate_fa);
+                    option::destroy_none(rebate_legacy);
+                    let rebate_amount_coin1 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                if (coin::is_account_registered<Collateral>(referrer)) {
-                    coin::deposit(referrer, rebate_amount_coin1);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        primary_fungible_store::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        primary_fungible_store::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    primary_fungible_store::deposit(owner, rebate_amount_coin2);
+
+                    primary_fungible_store::deposit(owner, rebate);
+
                 } else {
-                    coin::deposit(market.treasury_address, rebate_amount_coin1);
+                    // legacy
+                    let rebate = option::destroy_some(rebate_legacy);
+                    option::destroy_none(rebate_fa);
+                    let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        coin::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        coin::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    coin::deposit(owner, rebate_amount_coin2);
+
+                    coin::deposit(owner, rebate);
+
                 };
-                coin::deposit(owner, rebate_amount_coin2);
-                coin::deposit(owner, rebate);
 
                 emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
@@ -1280,7 +1478,14 @@ module perpetual::market {
                 });
 
             } else {
-                coin::deposit(owner, rebate);
+                if (type_registry::registered<Collateral>()) {
+                    primary_fungible_store::deposit(owner, option::destroy_some(rebate_fa));
+                    option::destroy_none(rebate_legacy);
+                } else {
+                    // legacy
+                    coin::deposit(owner, option::destroy_some(rebate_legacy));
+                    option::destroy_none(rebate_fa);
+                }
             };
 
             emit(
@@ -1294,8 +1499,36 @@ module perpetual::market {
             abort(EEXECUTE_OPEN_POSITION_FAILED)
         };
         // TODO: check currency here
-        coin::destroy_zero(collateral);
-        coin::deposit(executor_account, fee);
+        if (type_registry::registered<Collateral>()) {
+            // fa
+            let collateral = option::destroy_some(collateral_fa);
+            primary_fungible_store::deposit(owner, collateral);
+            option::destroy_none(collateral_legacy);
+        } else {
+            // legacy
+            let collateral = option::destroy_some(collateral_legacy);
+            if (coin::value(&collateral) != 0) {
+                coin::deposit(owner, collateral);
+            } else {
+                coin::destroy_zero(option::destroy_some(collateral_legacy));
+            };
+            option::destroy_none(collateral_fa);
+        };
+        if (type_registry::registered<Fee>()) {
+            // fa
+            let fee = option::destroy_some(fee_fa);
+            primary_fungible_store::deposit(executor_account, fee);
+            option::destroy_none(fee_legacy);
+        } else {
+            // legacy
+            let fee = option::destroy_some(fee_legacy);
+            if (coin::value(&fee) != 0) {
+                coin::deposit(executor_account, fee);
+            } else {
+                coin::destroy_zero(fee);
+            };
+            option::destroy_none(fee_fa);
+        }
     }
 
     public entry fun execute_decrease_position_order<Collateral, Index, Direction, Fee>(
@@ -1329,7 +1562,7 @@ module perpetual::market {
         let position_record =
             borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
         let position = table::borrow_mut(&mut position_record.positions, position_id);
-        let (code, result, failure, fee) =
+        let (code, result, failure, fee_legacy, fee_fa) =
             orders::execute_decrease_position_order<Collateral, Index, Direction, Fee>(
                 order,
                 position,
@@ -1341,36 +1574,79 @@ module perpetual::market {
                 market.treasury_ratio
             );
         if (code == 0) {
-            let (to_trader, rebate, _event) =
+            let (legacy, to_trader_legacy, rebate_legacy, to_trader_fa, rebate_fa, _event) =
                 pool::unwrap_decrease_position_result(option::destroy_some(result));
 
+            let amount = if (legacy) {
+                // legacy
+                let to_trader = option::destroy_some(to_trader_legacy);
+                option::destroy_none(to_trader_fa);
+                let amount = coin::value(&to_trader);
+                coin::deposit(owner, option::destroy_some(to_trader_legacy));
+                amount
+            } else {
+                // fa
+                let to_trader = option::destroy_some(to_trader_fa);
+                option::destroy_none(to_trader_legacy);
+                let amount = fungible_asset::amount(&to_trader);
+                primary_fungible_store::deposit(owner, to_trader);
+                amount
+            };
             emit(UserCollateralOut<Collateral, Index, Direction>{
                 user: owner,
                 position_id: position_id.id,
-                amount: coin::value(&to_trader)
+                amount
             });
-            coin::deposit(owner, to_trader);
             if (referrer != @0x0) {
-                let rebate_amount = coin::value(&rebate);
-                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount); 
+                // coin::deposit(referrer, rebate);
+                let rebate_amount = if(type_registry::registered<Collateral>()) {
+                    // fa
+                    fungible_asset::amount(option::borrow(&rebate_fa))
+                } else {
+                    // legacy
+                    coin::value(option::borrow(&rebate_legacy))
+                };
+                let rebate_amount_1 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_1 = decimal::div_by_u64(rebate_amount_1, 100);
 
                 let rebate_amount_2 = decimal::mul_with_u64(decimal::from_u64(50), rebate_amount);
                 let rebate_amount_2 = decimal::div_by_u64(rebate_amount_2, 100);
 
-                let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
-                let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
+                if (type_registry::registered<Collateral>()) {
+                    // fa
+                    let rebate = option::destroy_some(rebate_fa);
+                    option::destroy_none(rebate_legacy);
+                    let rebate_amount_coin1 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = fungible_asset::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                if (coin::is_account_registered<Collateral>(referrer)) {
-                    coin::deposit(referrer, rebate_amount_coin1);
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        primary_fungible_store::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        primary_fungible_store::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    primary_fungible_store::deposit(owner, rebate_amount_coin2);
+
+                    primary_fungible_store::deposit(owner, rebate);
+
                 } else {
-                    coin::deposit(market.treasury_address, rebate_amount_coin1);
-                };
-                coin::deposit(owner, rebate_amount_coin2);
-                
-                coin::deposit(owner, rebate);
+                    // legacy
+                    let rebate = option::destroy_some(rebate_legacy);
+                    option::destroy_none(rebate_fa);
+                    let rebate_amount_coin1 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_1));
+                    let rebate_amount_coin2 = coin::extract(&mut rebate, decimal::floor_u64(rebate_amount_2));
 
-                 emit(ReferrerProfitExecute<Collateral, Index> {
+                    if (coin::is_account_registered<Collateral>(referrer)) {
+                        coin::deposit(referrer, rebate_amount_coin1);
+                    } else {
+                        coin::deposit(market.treasury_address, rebate_amount_coin1);
+                    };
+                    coin::deposit(owner, rebate_amount_coin2);
+
+                    coin::deposit(owner, rebate);
+
+                };
+
+                emit(ReferrerProfitExecute<Collateral, Index> {
                     user: owner,
                     referrer: referrer,
                     amount: decrease_amount,
@@ -1379,7 +1655,14 @@ module perpetual::market {
                 });
 
             } else {
-                coin::deposit(owner, rebate);
+                if (type_registry::registered<Collateral>()) {
+                    primary_fungible_store::deposit(owner, option::destroy_some(rebate_fa));
+                    option::destroy_none(rebate_legacy);
+                } else {
+                    // legacy
+                    coin::deposit(owner, option::destroy_some(rebate_legacy));
+                    option::destroy_none(rebate_fa);
+                }
             };
 
             emit(
@@ -1396,7 +1679,13 @@ module perpetual::market {
 
         };
 
-        coin::deposit(executor_account, fee);
+        if (type_registry::registered<Fee>()) {
+            primary_fungible_store::deposit(executor_account, option::destroy_some(fee_fa));
+            option::destroy_none(fee_legacy);
+        } else {
+            coin::deposit(executor_account, option::destroy_some(fee_legacy));
+            option::destroy_none(fee_fa);
+        };
 
     }
 
@@ -1412,12 +1701,29 @@ module perpetual::market {
         let order_record =
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::remove(&mut order_record.open_orders, order_id);
-        let (collateral, fee) = orders::destroy_open_position_order(order);
+        let (collateral_legacy, collateral_fa, fee_legacy, fee_fa) =
+            orders::destroy_open_position_order(order);
 
         emit(OrderCleared<Collateral, Index, Direction> {});
 
-        coin::deposit(user_account, collateral);
-        coin::deposit(user_account, fee);
+        if (type_registry::registered<Collateral>()) {
+            let collateral = option::destroy_some(collateral_fa);
+            primary_fungible_store::deposit(user_account, collateral);
+            option::destroy_none(collateral_legacy);
+        } else {
+            let collateral = option::destroy_some(collateral_legacy);
+            coin::deposit(user_account, collateral);
+            option::destroy_none(collateral_fa);
+        };
+        if (type_registry::registered<Fee>()) {
+            let fee = option::destroy_some(fee_fa);
+            primary_fungible_store::deposit(user_account, fee);
+            option::destroy_none(fee_legacy);
+        } else {
+            let fee = option::destroy_some(fee_legacy);
+            coin::deposit(user_account, fee);
+            option::destroy_none(fee_fa);
+        };
     }
 
     public entry fun clear_decrease_position_order<Collateral, Index, Direction, Fee>(
@@ -1432,11 +1738,19 @@ module perpetual::market {
         let order_record =
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::remove(&mut order_record.decrease_orders, order_id);
-        let fee = orders::destory_decrease_position_order(order);
+        let (fee_legacy, fee_fa) = orders::destory_decrease_position_order(order);
 
         emit(OrderCleared<Collateral, Index, Direction> {});
 
-        coin::deposit(user_account, fee);
+        if (type_registry::registered<Fee>()) {
+            let fee = option::destroy_some(fee_fa);
+            primary_fungible_store::deposit(user_account, fee);
+            option::destroy_none(fee_legacy);
+        } else {
+            let fee = option::destroy_some(fee_legacy);
+            coin::deposit(user_account, fee);
+            option::destroy_none(fee_fa);
+        };
 
     }
 
@@ -1496,7 +1810,7 @@ module perpetual::market {
         let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
 
         // withdraw to burner
-        let (withdraw, fee_value) =
+        let (legacy, withdraw_legacy, withdraw_fa, fee_value) =
             pool::withdraw<Collateral>(
                 &market.rebase_model,
                 lp_burn_amount,
@@ -1508,11 +1822,19 @@ module perpetual::market {
                 market.treasury_address,
                 market.treasury_ratio
             );
-        let withdraw_amount = coin::value(&withdraw);
+        let withdraw_amount = if (type_registry::registered<Collateral>()){
+            let amount = fungible_asset::amount(option::borrow(&withdraw_fa));
+            primary_fungible_store::deposit(signer::address_of(user), option::destroy_some(withdraw_fa));
+            option::destroy_none(withdraw_legacy);
+            amount
+        } else {
+            let amount = coin::value(option::borrow(&withdraw_legacy));
+            coin::deposit(signer::address_of(user), option::destroy_some(withdraw_legacy));
+            option::destroy_none(withdraw_fa);
+            amount
+        };
         // burn lp
         lp::burn(user, lp_burn_amount);
-
-        coin::deposit(signer::address_of(user), withdraw);
 
         emit(
             Withdrawn<Collateral> {
@@ -1593,11 +1915,19 @@ module perpetual::market {
         let destination_vault_value =
             pool::vault_value<Destination>(timestamp::now_seconds());
 
+        let (source_legacy, source_fa) = if (type_registry::registered<Source>()) {
+            // fa
+            (option::none<Coin<Source>>(), option::some(primary_fungible_store::withdraw(user, get_metadata<Source>(), amount_in)))
+        } else {
+            // legacy
+            (option::some(coin::withdraw<Source>(user, amount_in)), option::none<FungibleAsset>())
+        };
         // swap step 1
         let (swap_value, source_fee_value) =
             pool::swap_in<Source>(
                 &market.rebase_model,
-                coin::withdraw<Source>(user, amount_in),
+                source_legacy,
+                source_fa,
                 source_vault_value,
                 total_vaults_value,
                 total_weight,
@@ -1606,7 +1936,7 @@ module perpetual::market {
             );
 
         // swap step 2
-        let (receiving, dest_fee_value) =
+        let (receiving_legacy, receiving_fa, dest_fee_value) =
             pool::swap_out<Destination>(
                 &market.rebase_model,
                 min_amount_out,
@@ -1617,9 +1947,17 @@ module perpetual::market {
                 market.treasury_address,
                 market.treasury_ratio
             );
-        let dest_amount = coin::value(&receiving);
-
-        coin::deposit(user_account, receiving);
+        let dest_amount = if (type_registry::registered<Destination>()) {
+            let amount = fungible_asset::amount(option::borrow(&receiving_fa));
+            primary_fungible_store::deposit(signer::address_of(user), option::destroy_some(receiving_fa));
+            option::destroy_none(receiving_legacy);
+            amount
+        } else {
+            let amount = coin::value(option::borrow(&receiving_legacy));
+            coin::deposit(user_account, option::destroy_some(receiving_legacy));
+            option::destroy_none(receiving_fa);
+            amount
+        };
 
         emit(
             Swapped<Source, Destination> {
@@ -1698,12 +2036,28 @@ module perpetual::market {
         let order_record =
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::remove(&mut order_record.open_orders, order_id);
-        let (collateral, fee) = orders::destroy_open_position_order(order);
+        let (collateral_legacy, collateral_fa, fee_legacy, fee_fa) = orders::destroy_open_position_order(order);
 
         emit(OrderCleared<Collateral, Index, Direction> {});
 
-        coin::deposit(user_account, collateral);
-        coin::deposit(user_account, fee);
+        if (type_registry::registered<Collateral>()) {
+            let collateral = option::destroy_some(collateral_fa);
+            primary_fungible_store::deposit(user_account, collateral);
+            option::destroy_none(collateral_legacy);
+        } else {
+            let collateral = option::destroy_some(collateral_legacy);
+            coin::deposit(user_account, collateral);
+            option::destroy_none(collateral_fa);
+        };
+        if (type_registry::registered<Fee>()) {
+            let fee = option::destroy_some(fee_fa);
+            primary_fungible_store::deposit(user_account, fee);
+            option::destroy_none(fee_legacy);
+        } else {
+            let fee = option::destroy_some(fee_legacy);
+            coin::deposit(user_account, fee);
+            option::destroy_none(fee_fa);
+        };
 
     }
 
@@ -1723,11 +2077,19 @@ module perpetual::market {
         let order_record =
             borrow_global_mut<OrderRecord<Collateral, Index, Direction, Fee>>(@perpetual);
         let order = table::remove(&mut order_record.decrease_orders, order_id);
-        let fee = orders::destory_decrease_position_order(order);
+        let (fee_legacy, fee_fa) = orders::destory_decrease_position_order(order);
 
         emit(OrderCleared<Collateral, Index, Direction> {});
 
-        coin::deposit(user_account, fee);
+        if (type_registry::registered<Fee>()) {
+            let fee = option::destroy_some(fee_fa);
+            primary_fungible_store::deposit(user_account, fee);
+            option::destroy_none(fee_legacy);
+        } else {
+            let fee = option::destroy_some(fee_legacy);
+            coin::deposit(user_account, fee);
+            option::destroy_none(fee_fa);
+        };
     }
 
     public fun lp_supply_amount(): Decimal {

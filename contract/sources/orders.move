@@ -1,7 +1,9 @@
 module perpetual::orders {
 
-    use std::option::{Option};
+    use std::option::{Self, Option};
     use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::fungible_asset::FungibleAsset;
+    use perpetual::type_registry;
     use perpetual::rate::{Rate};
     use perpetual::decimal::{Self, Decimal};
     use perpetual::positions::{Position, PositionConfig};
@@ -23,8 +25,10 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         position_config: PositionConfig,
-        collateral: Coin<CoinType>,
-        fee: Coin<Fee>,
+        collateral_legacy: Option<Coin<CoinType>>,
+        fee_legacy: Option<Coin<Fee>>,
+        collateral_fa: Option<FungibleAsset>,
+        fee_fa: Option<FungibleAsset>,
     }
 
     struct DecreasePositionOrder<phantom CoinType> has store {
@@ -34,7 +38,8 @@ module perpetual::orders {
         decrease_amount: u64,
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
-        fee: Coin<CoinType>,
+        fee_legacy: Option<Coin<CoinType>>,
+        fee_fa: Option<FungibleAsset>,
         position_num: u64
     }
 
@@ -65,8 +70,10 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         position_config: PositionConfig,
-        collateral: Coin<Collateral>,
-        fee: Coin<Fee>,
+        collateral_legacy: Option<Coin<Collateral>>,
+        fee_legacy: Option<Coin<Fee>>,
+        collateral_fa: Option<FungibleAsset>,
+        fee_fa: Option<FungibleAsset>
     ): OpenPositionOrder<Collateral, Fee> {
         let order = OpenPositionOrder<Collateral, Fee> {
             executed: false,
@@ -76,8 +83,10 @@ module perpetual::orders {
             limited_index_price,
             collateral_price_threshold,
             position_config,
-            collateral,
-            fee
+            collateral_legacy,
+            fee_legacy,
+            collateral_fa,
+            fee_fa
         };
         order
     }
@@ -89,14 +98,14 @@ module perpetual::orders {
         order.decrease_amount
     }
 
-
     public(friend) fun new_decrease_position_order<Fee>(
         timestamp: u64,
         take_profit: bool,
         decrease_amount: u64,
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
-        fee: Coin<Fee>,
+        fee_legacy: Option<Coin<Fee>>,
+        fee_fa: Option<FungibleAsset>,
         position_num: u64
     ): DecreasePositionOrder<Fee> {
         // let event = CreateDecreasePositionOrderEvent {
@@ -113,7 +122,8 @@ module perpetual::orders {
             decrease_amount,
             limited_index_price,
             collateral_price_threshold,
-            fee,
+            fee_legacy,
+            fee_fa,
             position_num
         };
 
@@ -129,7 +139,15 @@ module perpetual::orders {
         timestamp: u64,
         treasury_address: address,
         treasury_ratio: Rate
-    ): (u64, Coin<Collateral>, Option<OpenPositionResult<Collateral>>, Option<OpenPositionFailedEvent>, Coin<Fee>) {
+    ): (
+        u64,
+        Option<Coin<Collateral>>,
+        Option<FungibleAsset>,
+        Option<OpenPositionResult<Collateral>>,
+        Option<OpenPositionFailedEvent>,
+        Option<Coin<Fee>>,
+        Option<FungibleAsset>
+    ) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
         let index_price = agg_price::parse_config(
             &pool::symbol_price_config<Index, Direction>(),
@@ -150,24 +168,54 @@ module perpetual::orders {
         // update order status
         order.executed = true;
         // withdraw fee
-        let fee = coin::extract_all(&mut order.fee);
+        let(fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
+            // fa
+            let fee = option::extract(&mut order.fee_fa);
+            (option::none<Coin<Fee>>(), option::some(fee))
+        } else {
+            // legacy
+            let fee = coin::extract_all<Fee>(option::borrow_mut(&mut order.fee_legacy));
+            (option::some(fee), option::none<FungibleAsset>())
+        };
 
         // open position in pool
-        let (code, collateral, result, failure) = pool::open_position<Collateral, Index, Direction>(
-            &order.position_config,
-            coin::extract_all(&mut order.collateral),
-            order.collateral_price_threshold,
-            rebate_rate,
-            long,
-            order.open_amount,
-            order.reserve_amount,
-            lp_supply_amount,
-            timestamp,
-            treasury_address,
-            treasury_ratio
-        );
 
-        (code, collateral, result, failure, fee)
+        let (code, collateral_legacy, collateral_fa, result, failure) = if (type_registry::registered<Collateral>()) {
+            // fa
+            let (code, collateral, result, failure) = pool::open_position_fa<Collateral, Index, Direction>(
+                &order.position_config,
+                option::extract(&mut order.collateral_fa),
+                order.collateral_price_threshold,
+                rebate_rate,
+                long,
+                order.open_amount,
+                order.reserve_amount,
+                lp_supply_amount,
+                timestamp,
+                treasury_address,
+                treasury_ratio
+            );
+            (code, option::none<Coin<Collateral>>(), option::some(collateral), result, failure)
+        } else {
+            // legacy
+            let (code, collateral, result, failure) = pool::open_position_legacy<Collateral, Index, Direction>(
+                &order.position_config,
+                option::extract(&mut order.collateral_legacy),
+                order.collateral_price_threshold,
+                rebate_rate,
+                long,
+                order.open_amount,
+                order.reserve_amount,
+                lp_supply_amount,
+                timestamp,
+                treasury_address,
+                treasury_ratio
+            );
+            (code, option::some(collateral), option::none<FungibleAsset>(), result, failure)
+
+        };
+
+        (code, collateral_legacy, collateral_fa, result, failure, fee_legacy, fee_fa)
     }
 
     public(friend) fun execute_decrease_position_order<Collateral, Index, Direction, Fee>(
@@ -179,7 +227,7 @@ module perpetual::orders {
         timestamp: u64,
         treasury_address: address,
         treasury_ratio: Rate
-    ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>, Coin<Fee>) {
+    ): (u64, Option<DecreasePositionResult<Collateral>>, Option<DecreasePositionFailedEvent>, Option<Coin<Fee>>, Option<FungibleAsset>) {
         assert!(!order.executed, ERR_ORDER_ALREADY_EXECUTED);
         let index_price = agg_price::parse_config(
             &pool::symbol_price_config<Index, Direction>(),
@@ -206,7 +254,15 @@ module perpetual::orders {
         // update order status
         order.executed = true;
         // withdraw fee
-        let fee = coin::extract_all(&mut order.fee);
+        let (fee_legacy, fee_fa) = if(type_registry::registered<Fee>()) {
+            // fa
+            let fee = option::extract(&mut order.fee_fa);
+            (option::none<Coin<Fee>>(), option::some(fee))
+        } else {
+            // legacy
+            let fee = option::extract(&mut order.fee_legacy);
+            (option::some(fee), option::none<FungibleAsset>())
+        };
         // decrease position in pool
         let (code, result, failure) =
             pool::decrease_position<Collateral, Index, Direction>(
@@ -221,12 +277,12 @@ module perpetual::orders {
                 treasury_ratio
         );
 
-        (code, result, failure, fee)
+        (code, result, failure, fee_legacy, fee_fa)
     }
 
     public(friend) fun destroy_open_position_order<Collateral, Fee>(
         order: OpenPositionOrder<Collateral, Fee>
-    ): (Coin<Collateral>, Coin<Fee>) {
+    ): (Option<Coin<Collateral>>, Option<FungibleAsset>, Option<Coin<Fee>>, Option<FungibleAsset>) {
         let OpenPositionOrder {
             executed: _,
             created_at: _,
@@ -235,16 +291,37 @@ module perpetual::orders {
             limited_index_price: _,
             collateral_price_threshold: _,
             position_config: _,
-            collateral,
-            fee,
+            collateral_legacy,
+            fee_legacy,
+            collateral_fa,
+            fee_fa,
         } = order;
+        let (collateral_legacy, collateral_fa) = if (type_registry::registered<Collateral>()) {
+            let collateral = option::destroy_some(collateral_fa);
+            option::destroy_none(collateral_legacy);
+            (option::none<Coin<Collateral>>(), option::some(collateral))
+        } else {
+            let collateral = option::destroy_some(collateral_legacy);
+            option::destroy_none(collateral_fa);
+            (option::some(collateral), option::none<FungibleAsset>())
 
-        (collateral, fee)
+        };
+        let (fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
+            let fee = option::destroy_some(fee_fa);
+            option::destroy_none(fee_legacy);
+            (option::none<Coin<Fee>>(), option::some(fee))
+        } else {
+            let fee = option::destroy_some(fee_legacy);
+            option::destroy_none(fee_fa);
+            (option::some(fee), option::none<FungibleAsset>())
+        };
+
+        (collateral_legacy, collateral_fa, fee_legacy, fee_fa)
     }
 
     public(friend) fun destory_decrease_position_order<Fee>(
         order: DecreasePositionOrder<Fee>
-    ): Coin<Fee> {
+    ): (Option<Coin<Fee>>, Option<FungibleAsset>) {
         let DecreasePositionOrder {
             executed: _,
             created_at: _,
@@ -252,11 +329,12 @@ module perpetual::orders {
             decrease_amount: _,
             limited_index_price: _,
             collateral_price_threshold: _,
-            fee,
+            fee_legacy,
+            fee_fa,
             position_num: _
         } = order;
 
-        fee
+        (fee_legacy, fee_fa)
     }
 
 
