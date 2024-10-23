@@ -5,7 +5,7 @@ upgrade_policy = "compatible"
 authors = []
 
 [addresses]
-perpetual = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
+perpetual = "0xdc7386d3e8a210b8edf5fabcd4c7baddaa29517269197e45146b02dea4cdbc2f"
 
 [dev-addresses]
 

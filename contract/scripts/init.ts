@@ -11,9 +11,9 @@ import { promises as fsp } from "fs";
 
 
 
-export const MODULE_ADDRESS = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
+export const MODULE_ADDRESS = "0xdc7386d3e8a210b8edf5fabcd4c7baddaa29517269197e45146b02dea4cdbc2f"
 export const FEERDER_ADDRESS = "0x7e783b349d3e89cf5931af376ebeadbfab855b3fa239b7ada8f5a92fbea6b387"
-export const COIN_ADDRESS = "0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378"
+export const COIN_ADDRESS = "0x69c513e5bb8fbbe8f82dab674ad477f760b7dd9920c838a7463682bfe2204a70"
 
 export const APT_FEEDER_ADDRESS =
     "44a93dddd8effa54ea51076c4e851b6cbbfd938e82eb90197de38fe8876bb66e"
@@ -51,7 +51,7 @@ const moduleAddress =
 const coinAddress =
     COIN_ADDRESS
 
-let PRIVATE_KEY = '0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922'
+let PRIVATE_KEY = '0xae71dbbf47924f27b4ac4395ddc33c9f0fefe7446d942d26716c59d95d3ac44e'
 
 const singer = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(PRIVATE_KEY),
@@ -94,7 +94,7 @@ const VAULT_LIST = [
         name: 'APT',
         vaultType: APTOS_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.15, 18),
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             APT_FEEDER_ADDRESS,
@@ -104,46 +104,51 @@ const VAULT_LIST = [
             tolerance: 90000000000000000
         },
         param_multiplier: '800000000000000',
+        legacy: true
     },
     {
         name: 'USDC',
         vaultType: USDC_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.1, 18),
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             USDC_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
+        legacy: true
     },
     {
         name: 'USDT',
         vaultType: USDT_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.5, 18),
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             USDT_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
+        legacy: false
     },
     {
         name: 'BTC',
         vaultType: BTC_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.2, 18),
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             BTC_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
+        legacy: true
     },
     {
         name: 'ETH',
         vaultType: ETH_VAULT_ADDRESS,
         weight: formatAptosDecimal(0.05, 18),
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             ETH_FEEDER_ADDRESS,
         param_multiplier: '800000000000000',
+        legacy: true
     },
     // {
     //     name: 'ST_APT',
@@ -160,7 +165,7 @@ const SYMBOL_LIST = [
     {
         name: 'BTC',
         symbolType: BTC_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             BTC_FEEDER_ADDRESS,
@@ -178,7 +183,7 @@ const SYMBOL_LIST = [
     {
         name: 'ETH',
         symbolType: ETH_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             ETH_FEEDER_ADDRESS,
@@ -196,7 +201,7 @@ const SYMBOL_LIST = [
     {
         name: 'BNB',
         symbolType: BNB_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             BNB_FEEDER_ADDRESS,
@@ -214,7 +219,7 @@ const SYMBOL_LIST = [
     {
         name: 'SOL',
         symbolType: SOL_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             SOL_FEEDER_ADDRESS,
@@ -233,7 +238,7 @@ const SYMBOL_LIST = [
     {
         name: 'AVAX',
         symbolType: AVAX_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             AVAX_FEEDER_ADDRESS,
@@ -252,7 +257,7 @@ const SYMBOL_LIST = [
     {
         name: 'APT',
         symbolType: APTOS_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             APT_FEEDER_ADDRESS,
@@ -271,7 +276,7 @@ const SYMBOL_LIST = [
     {
         name: 'DOGE',
         symbolType: DOGE_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             DOGE_FEEDER_ADDRESS,
@@ -290,7 +295,7 @@ const SYMBOL_LIST = [
     {
         name: 'PEPE',
         symbolType: PEPE_SYMBOL_ADDRESS,
-        max_interval: 20,
+        max_interval: 200000,
         max_price_confidence: '18446744073709551615',
         feeder:
             PEPE_FEEDER_ADDRESS,
@@ -332,6 +337,7 @@ async function executeAddNewVault() {
                     vault.max_price_confidence,
                     hexStringToUint8Array(vault.feeder),
                     vault.param_multiplier,
+                    vault.legacy
                 ],
             },
             options: {expireTimestamp: Math.floor(Date.now() / 1000 + 1000)}
@@ -428,7 +434,6 @@ async function executeAddCollateralToSymbol() {
                     console.log("🚀 ~ executeAddCollateralToSymbol ~ error:", error)
 
                 }
-
             }
         }
     }
@@ -465,53 +470,53 @@ async function replaceVaultPriceFeeder() {
     }
 }
 
-async function replaceVaultSecondPriceFeeder() {
-    for (const vault of VAULT_LIST) {
-        if ('seconde_feeder' in vault) {
-            let transaction;
-            if (vault.seconde_feeder?.type == SWITCHBRD_TYPE) {
-                transaction = await aptos.transaction.build.simple({
-                    sender: singer.accountAddress,
-                    data: {
-                        function: `${moduleAddress}::market::replace_vault_second_feeder_switchboard`,
-                        typeArguments: [vault.vaultType],
-                        functionArguments: [
-                            vault.seconde_feeder?.oracle_holder,
-                            vault.seconde_feeder?.tolerance,
-                        ],
-                    },
-                })
-            } else  {
-                transaction = await aptos.transaction.build.simple({
-                    sender: singer.accountAddress,
-                    data: {
-                        function: `${moduleAddress}::market::replace_vault_second_feeder_supra`,
-                        typeArguments: [vault.vaultType],
-                        functionArguments: [
-                            vault.seconde_feeder?.oracle_holder,
-                            vault.seconde_feeder?.tolerance,
-                            vault.max_price_confidence,
-                        ],
-                    },
-                })
-            }
-            const committedTransaction = await aptos.signAndSubmitTransaction({
-                signer: singer,
-                transaction,
-            })
+// async function replaceVaultSecondPriceFeeder() {
+//     for (const vault of VAULT_LIST) {
+//         if ('seconde_feeder' in vault) {
+//             let transaction;
+//             if (vault.seconde_feeder?.type == SWITCHBRD_TYPE) {
+//                 transaction = await aptos.transaction.build.simple({
+//                     sender: singer.accountAddress,
+//                     data: {
+//                         function: `${moduleAddress}::market::replace_vault_second_feeder_switchboard`,
+//                         typeArguments: [vault.vaultType],
+//                         functionArguments: [
+//                             vault.seconde_feeder?.oracle_holder,
+//                             vault.seconde_feeder?.tolerance,
+//                         ],
+//                     },
+//                 })
+//             } else  {
+//                 transaction = await aptos.transaction.build.simple({
+//                     sender: singer.accountAddress,
+//                     data: {
+//                         function: `${moduleAddress}::market::replace_vault_second_feeder_supra`,
+//                         typeArguments: [vault.vaultType],
+//                         functionArguments: [
+//                             vault.seconde_feeder?.oracle_holder,
+//                             vault.seconde_feeder?.tolerance,
+//                             vault.max_price_confidence,
+//                         ],
+//                     },
+//                 })
+//             }
+//             const committedTransaction = await aptos.signAndSubmitTransaction({
+//                 signer: singer,
+//                 transaction,
+//             })
 
-            const response = await aptos.waitForTransaction({
-                transactionHash: committedTransaction.hash
-            })
-            console.log(
-                `🚀 ~ Transaction submitted Replace Vault Feeder : ${vault.name}`,
-                response.success ? 'Success' : 'Failed'
-            )
+//             const response = await aptos.waitForTransaction({
+//                 transactionHash: committedTransaction.hash
+//             })
+//             console.log(
+//                 `🚀 ~ Transaction submitted Replace Vault Feeder : ${vault.name}`,
+//                 response.success ? 'Success' : 'Failed'
+//             )
 
-        }
+//         }
 
-    }
-}
+//     }
+// }
 
 async function replaceSymbolPriceFeeder() {
     for (const symbol of SYMBOL_LIST) {
@@ -549,10 +554,10 @@ async function replaceSymbolPriceFeeder() {
 async function main() {
     // await executeAddNewVault()
     // await executeAddNewSymbol()
-    // await executeAddCollateralToSymbol()
+    await executeAddCollateralToSymbol()
     // await replaceVaultPriceFeeder()
     // await replaceSymbolPriceFeeder()
-    await replaceVaultSecondPriceFeeder()
+    // await replaceVaultSecondPriceFeeder()
 }
 
 (async () => {

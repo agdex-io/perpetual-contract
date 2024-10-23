@@ -189,7 +189,7 @@ module perpetual::positions {
         collateral_price: &AggPrice,
         index_price: &AggPrice,
         fa_signer_cap: &SignerCapability,
-        collateral: FungibleAsset,
+        collateral: &mut FungibleAsset,
         collateral_price_threshold: Decimal,
         open_amount: u64,
         reserve_amount: u64,
@@ -197,9 +197,7 @@ module perpetual::positions {
         funding_rate: SRate,
         timestamp: u64,
     ): (u64, Option<OpenPositionResult<Collateral>>) {
-        if (fungible_asset::amount(&collateral) == 0) {
-            return (ERR_INVALID_PLEDGE, option::none())
-        };
+        assert!(fungible_asset::amount(collateral) != 0, ERR_INVALID_PLEDGE);
         if (
             decimal::lt(
                 &agg_price::price_of(collateral_price),
@@ -208,12 +206,8 @@ module perpetual::positions {
         ) {
             return (ERR_COLLATERAL_PRICE_EXCEED_THRESHOLD, option::none())
         };
-        if (open_amount == 0) {
-            return (ERR_INVALID_OPEN_AMOUNT, option::none())
-        };
-        if (fungible_asset::amount(&collateral) * config.max_reserved_multiplier < reserve_amount) {
-            return (ERR_EXCEED_MAX_RESERVED, option::none())
-        };
+        assert!(open_amount != 0, ERR_INVALID_OPEN_AMOUNT);
+        assert!(fungible_asset::amount(collateral) * config.max_reserved_multiplier >= reserve_amount, ERR_EXCEED_MAX_RESERVED);
 
         // compute position size
         let open_size = agg_price::coins_to_value(index_price, open_amount);
@@ -222,32 +216,27 @@ module perpetual::positions {
         let open_fee_value = decimal::mul_with_rate(open_size, config.open_fee_bps);
         let open_fee_amount_dec = agg_price::value_to_coins(collateral_price, open_fee_value);
         let open_fee_amount = decimal::ceil_u64(open_fee_amount_dec);
-        if (open_fee_amount > fungible_asset::amount(&collateral)) {
-            return (ERR_INSUFFICIENT_COLLATERAL, option::none())
-        };
+        assert!(open_fee_amount < fungible_asset::amount(collateral), ERR_INSUFFICIENT_COLLATERAL);
 
         // compute collateral value
         let collateral_value = agg_price::coins_to_value(
             collateral_price,
-            fungible_asset::amount(&collateral) - open_fee_amount,
+            fungible_asset::amount(collateral) - open_fee_amount,
         );
-        if (decimal::lt(&collateral_value, &config.min_collateral_value)) {
-            return (ERR_COLLATERAL_VALUE_TOO_LESS, option::none())
-        };
+        assert!((decimal::gt(&collateral_value, &config.min_collateral_value)), ERR_COLLATERAL_VALUE_TOO_LESS);
 
         // validate leverage
         let ok = check_leverage(config, collateral_value, open_amount, index_price);
-        if (!ok) {
-            return (ERR_LEVERAGE_TOO_LARGE, option::none())
-        };
+        assert!(ok, ERR_LEVERAGE_TOO_LARGE);
 
-        let (reserved_fa_signer, reserved_signercap) = generate_resource_account<Collateral>(fa_signer_cap, timestamp);
+        let (_reserved_fa_signer, reserved_signercap) = generate_resource_account<Collateral>(fa_signer_cap, timestamp);
         let (collateral_fa_account, collateral_signercap) = generate_resource_account<Collateral>(fa_signer_cap, timestamp);
         // take away open fee
-        let open_fee = fungible_asset::extract(&mut collateral, open_fee_amount);
+        let open_fee = fungible_asset::extract(collateral, open_fee_amount);
         emit(VaultWithdrawEvent<Collateral>{amount: reserve_amount});
-        let collateral_amount = fungible_asset::amount(&collateral);
-        primary_fungible_store::deposit(signer::address_of(&collateral_fa_account), collateral);
+        let collateral_amount = fungible_asset::amount(collateral);
+        let collateral_all = fungible_asset::extract(collateral, collateral_amount);
+        primary_fungible_store::deposit(signer::address_of(&collateral_fa_account), collateral_all);
         primary_fungible_store::transfer(
             &account::create_signer_with_capability(fa_signer_cap),
             get_metadata<Collateral>(),
@@ -421,8 +410,8 @@ module perpetual::positions {
         if (position.closed) {
             return (ERR_ALREADY_CLOSED, option::none())
         };
-        let reserved_amount = 0;
-        let collateral_amount = 0;
+        let reserved_amount ;
+        let collateral_amount ;
         if(position.legacy) {
             reserved_amount = coin::value(option::borrow(&position.reserved_legacy));
             collateral_amount = coin::value(option::borrow(&position.collateral_legacy));
@@ -629,7 +618,7 @@ module perpetual::positions {
                     account::get_signer_capability_address(option::borrow(&position.reserved_fa)),
                     get_metadata<Collateral>()
                 );
-                let collateral_fa = primary_fungible_store::balance(
+                let _collateral_fa = primary_fungible_store::balance(
                     account::get_signer_capability_address(option::borrow(&position.collateral_fa)),
                     get_metadata<Collateral>()
                 );
@@ -692,8 +681,8 @@ module perpetual::positions {
         reserving_rate: Rate
     ): (Option<Coin<Collateral>>, Option<FungibleAsset>) {
         assert!(!position.closed, ERR_ALREADY_CLOSED);
-        let reserved_amount = 0;
-        let collateral_amount = 0;
+        let reserved_amount ;
+        let collateral_amount ;
         if(position.legacy) {
             reserved_amount = coin::value(option::borrow(&position.reserved_legacy));
             collateral_amount = coin::value(option::borrow(&position.collateral_legacy));
@@ -746,9 +735,11 @@ module perpetual::positions {
         if (position.legacy) {
             assert!(coin::value(option::borrow(&pledge_legacy)) > 0, ERR_INVALID_PLEDGE);
             coin::merge(option::borrow_mut(&mut position.collateral_legacy), option::destroy_some(pledge_legacy));
+            option::destroy_none(pledge_fa);
         } else {
             assert!(fungible_asset::amount(option::borrow(&pledge_fa)) > 0, ERR_INVALID_PLEDGE);
             primary_fungible_store::deposit(account::get_signer_capability_address(option::borrow(&position.reserved_fa)), option::destroy_some(pledge_fa));
+            option::destroy_none(pledge_legacy);
         }
     }
 
@@ -763,8 +754,8 @@ module perpetual::positions {
         timestamp: u64,
     ): (Option<Coin<Collateral>>, Option<FungibleAsset>) {
         assert!(!position.closed, ERR_ALREADY_CLOSED);
-        let reserved_amount = 0;
-        let collateral_amount = 0;
+        let reserved_amount ;
+        let collateral_amount;
         if(position.legacy) {
             reserved_amount = coin::value(option::borrow(&position.reserved_legacy));
             collateral_amount = coin::value(option::borrow(&position.collateral_legacy));
@@ -868,8 +859,8 @@ module perpetual::positions {
         Option<FungibleAsset>,
     ) {
         assert!(!position.closed, ERR_ALREADY_CLOSED);
-        let reserved_amount = 0;
-        let collateral_amount = 0;
+        let reserved_amount;
+        let collateral_amount ;
         if(position.legacy) {
             reserved_amount = coin::value(option::borrow(&position.reserved_legacy));
             collateral_amount = coin::value(option::borrow(&position.collateral_legacy));
@@ -944,8 +935,8 @@ module perpetual::positions {
             )
         );
 
-        let to_vault_amount = 0;
-        let to_liquidator_amount = 0;
+        let to_vault_amount;
+        let to_liquidator_amount;
         let (to_liquidator_legacy, to_vault_legacy, to_liquidator_fa, to_vault_fa) =  if(position.legacy) {
             let to_liquidator = coin::extract(option::borrow_mut(&mut position.collateral_legacy), bonus_amount);
             let to_vault = coin::extract_all(option::borrow_mut(&mut position.reserved_legacy));
@@ -1022,8 +1013,8 @@ module perpetual::positions {
         } else {
             option::destroy_none(reserved_legacy);
             option::destroy_none(collateral_legacy);
-            coin::destroy_zero(option::destroy_some(reserved_legacy));
-            coin::destroy_zero(option::destroy_some(collateral_legacy));
+            option::destroy_some(reserved_fa);
+            option::destroy_some(collateral_fa);
         }
     }
 

@@ -1,9 +1,15 @@
 module perpetual::orders {
 
+    use std::bcs;
+    use std::vector;
+    use std::signer;
     use std::option::{Self, Option};
+    use aptos_framework::randomness;
     use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::primary_fungible_store;
+    use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::fungible_asset::FungibleAsset;
-    use perpetual::type_registry;
+    use perpetual::type_registry::{Self, get_metadata};
     use perpetual::rate::{Rate};
     use perpetual::decimal::{Self, Decimal};
     use perpetual::positions::{Position, PositionConfig};
@@ -27,8 +33,8 @@ module perpetual::orders {
         position_config: PositionConfig,
         collateral_legacy: Option<Coin<CoinType>>,
         fee_legacy: Option<Coin<Fee>>,
-        collateral_fa: Option<FungibleAsset>,
-        fee_fa: Option<FungibleAsset>,
+        collateral_store_cap: Option<SignerCapability>,
+        fee_store_cap: Option<SignerCapability>
     }
 
     struct DecreasePositionOrder<phantom CoinType> has store {
@@ -39,7 +45,7 @@ module perpetual::orders {
         limited_index_price: AggPrice,
         collateral_price_threshold: Decimal,
         fee_legacy: Option<Coin<CoinType>>,
-        fee_fa: Option<FungibleAsset>,
+        fee_store_cap: Option<SignerCapability>,
         position_num: u64
     }
 
@@ -64,6 +70,7 @@ module perpetual::orders {
     }
 
     public(friend) fun new_open_position_order<Collateral, Fee>(
+        user: &signer,
         timestamp: u64,
         open_amount: u64,
         reserve_amount: u64,
@@ -75,6 +82,23 @@ module perpetual::orders {
         collateral_fa: Option<FungibleAsset>,
         fee_fa: Option<FungibleAsset>
     ): OpenPositionOrder<Collateral, Fee> {
+        let collateral_store_cap = if (type_registry::registered<Collateral>()) {
+            let (collateral_signer, collateral_cap) = generate_resource_account<Collateral>(user, timestamp);
+            primary_fungible_store::deposit(signer::address_of(&collateral_signer), option::destroy_some(collateral_fa));
+            option::some(collateral_cap)
+        } else {
+            option::destroy_none(collateral_fa);
+            option::none<SignerCapability>()
+        };
+        let fee_store_cap = if (type_registry::registered<Fee>()) {
+            let (fee_signer, fee_cap) = generate_resource_account<Fee>(user, timestamp);
+            primary_fungible_store::deposit(signer::address_of(&fee_signer), option::destroy_some(fee_fa));
+            option::some(fee_cap)
+        } else {
+            option::destroy_none(fee_fa);
+            option::none<SignerCapability>()
+        };
+
         let order = OpenPositionOrder<Collateral, Fee> {
             executed: false,
             created_at: timestamp,
@@ -85,8 +109,8 @@ module perpetual::orders {
             position_config,
             collateral_legacy,
             fee_legacy,
-            collateral_fa,
-            fee_fa
+            collateral_store_cap,
+            fee_store_cap
         };
         order
     }
@@ -99,6 +123,7 @@ module perpetual::orders {
     }
 
     public(friend) fun new_decrease_position_order<Fee>(
+        user: &signer,
         timestamp: u64,
         take_profit: bool,
         decrease_amount: u64,
@@ -115,6 +140,14 @@ module perpetual::orders {
         //     collateral_price_threshold,
         //     fee_amount: balance::value(&fee),
         // };
+        let fee_store_cap = if (type_registry::registered<Fee>()) {
+            let (fee_signer, fee_cap) = generate_resource_account<Fee>(user, timestamp);
+            primary_fungible_store::deposit(signer::address_of(&fee_signer), option::destroy_some(fee_fa));
+            option::some(fee_cap)
+        } else {
+            option::destroy_none(fee_fa);
+            option::none<SignerCapability>()
+        };
         let order = DecreasePositionOrder {
             executed: false,
             created_at: timestamp,
@@ -123,12 +156,19 @@ module perpetual::orders {
             limited_index_price,
             collateral_price_threshold,
             fee_legacy,
-            fee_fa,
+            fee_store_cap,
             position_num
         };
 
         // (order, event)
         order
+    }
+
+    fun generate_resource_account<Collateral>(user: &signer, timestamp: u64): (signer, SignerCapability) {
+        let seed = randomness::bytes(1);
+        vector::append(&mut seed, bcs::to_bytes<u64>(&timestamp));
+        primary_fungible_store::ensure_primary_store_exists(signer::address_of(user), get_metadata<Collateral>());
+        account::create_resource_account(user, seed)
     }
 
     public(friend) fun execute_open_position_order<Collateral, Index, Direction, Fee>(
@@ -170,7 +210,9 @@ module perpetual::orders {
         // withdraw fee
         let(fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
             // fa
-            let fee = option::extract(&mut order.fee_fa);
+            let s = account::create_signer_with_capability(option::borrow(&order.fee_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Fee>());
+            let fee = primary_fungible_store::withdraw(&s, get_metadata<Fee>(), amount);
             (option::none<Coin<Fee>>(), option::some(fee))
         } else {
             // legacy
@@ -182,9 +224,12 @@ module perpetual::orders {
 
         let (code, collateral_legacy, collateral_fa, result, failure) = if (type_registry::registered<Collateral>()) {
             // fa
+            let s = account::create_signer_with_capability(option::borrow(&order.collateral_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Collateral>());
+            let collateral = primary_fungible_store::withdraw(&s, get_metadata<Collateral>(), amount);
             let (code, collateral, result, failure) = pool::open_position_fa<Collateral, Index, Direction>(
                 &order.position_config,
-                option::extract(&mut order.collateral_fa),
+                collateral,
                 order.collateral_price_threshold,
                 rebate_rate,
                 long,
@@ -256,7 +301,9 @@ module perpetual::orders {
         // withdraw fee
         let (fee_legacy, fee_fa) = if(type_registry::registered<Fee>()) {
             // fa
-            let fee = option::extract(&mut order.fee_fa);
+            let s = account::create_signer_with_capability(option::borrow(&order.fee_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Fee>());
+            let fee = primary_fungible_store::withdraw(&s, get_metadata<Fee>(), amount);
             (option::none<Coin<Fee>>(), option::some(fee))
         } else {
             // legacy
@@ -293,26 +340,30 @@ module perpetual::orders {
             position_config: _,
             collateral_legacy,
             fee_legacy,
-            collateral_fa,
-            fee_fa,
+            collateral_store_cap,
+            fee_store_cap,
         } = order;
         let (collateral_legacy, collateral_fa) = if (type_registry::registered<Collateral>()) {
-            let collateral = option::destroy_some(collateral_fa);
+            let s = account::create_signer_with_capability(&option::destroy_some(collateral_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Collateral>());
+            let collateral = primary_fungible_store::withdraw(&s, get_metadata<Collateral>(), amount);
             option::destroy_none(collateral_legacy);
             (option::none<Coin<Collateral>>(), option::some(collateral))
         } else {
             let collateral = option::destroy_some(collateral_legacy);
-            option::destroy_none(collateral_fa);
+            option::destroy_none(collateral_store_cap);
             (option::some(collateral), option::none<FungibleAsset>())
 
         };
         let (fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
-            let fee = option::destroy_some(fee_fa);
+            let s = account::create_signer_with_capability(&option::destroy_some(fee_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Fee>());
+            let fee = primary_fungible_store::withdraw(&s, get_metadata<Fee>(), amount);
             option::destroy_none(fee_legacy);
             (option::none<Coin<Fee>>(), option::some(fee))
         } else {
             let fee = option::destroy_some(fee_legacy);
-            option::destroy_none(fee_fa);
+            option::destroy_none(fee_store_cap);
             (option::some(fee), option::none<FungibleAsset>())
         };
 
@@ -330,9 +381,17 @@ module perpetual::orders {
             limited_index_price: _,
             collateral_price_threshold: _,
             fee_legacy,
-            fee_fa,
+            fee_store_cap,
             position_num: _
         } = order;
+        let fee_fa = if (type_registry::registered<Fee>()) {
+            let s = account::create_signer_with_capability(&option::destroy_some(fee_store_cap));
+            let amount = primary_fungible_store::balance(signer::address_of(&s), get_metadata<Fee>());
+            let fee = primary_fungible_store::withdraw(&s, get_metadata<Fee>(), amount);
+            option::some(fee)
+        } else {
+            option::none<FungibleAsset>()
+        };
 
         (fee_legacy, fee_fa)
     }

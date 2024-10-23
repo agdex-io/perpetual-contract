@@ -15,8 +15,8 @@ module perpetual::type_registry {
 
     public entry fun register<T>(sender: &signer, object: address) {
         let sender_addr = signer::address_of(sender);
-        assert!(sender_addr != @perpetual, ENOT_STATE_ACCOUNT);
-        assert!(exists<Record<T>>(@perpetual), EALREADY_REGISTERED);
+        assert!(sender_addr == @perpetual, ENOT_STATE_ACCOUNT);
+        assert!(!exists<Record<T>>(@perpetual), EALREADY_REGISTERED);
         move_to(sender, Record<T>{
             object
         });

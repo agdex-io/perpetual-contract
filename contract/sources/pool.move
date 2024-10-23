@@ -19,7 +19,6 @@ module perpetual::pool {
     use aptos_framework::fungible_asset::{Self, FungibleAsset};
     use aptos_framework::primary_fungible_store;
     use aptos_framework::primary_fungible_store::ensure_primary_store_exists;
-    use aptos_framework::randomness;
     use aptos_framework::timestamp;
     use perpetual::lp;
     use perpetual::admin;
@@ -526,7 +525,7 @@ module perpetual::pool {
             treasury_reserve_value,
             treasury_reserve_amount,
             fee_rate,
-            fee_value,
+            fee_value: deposit_value,
             collateral_price,
         });
 
@@ -685,12 +684,14 @@ module perpetual::pool {
 
             emit(VaultDepositEvent<Source>{amount: coin::value(&source)});
             coin::merge(&mut source_vault.liquidity_legacy, source);
+            option::destroy_none(source_fa);
             source_amount
         } else {
             let source = option::destroy_some(source_fa);
             let source_amount = fungible_asset::amount(&source);
             let addr = account::get_signer_capability_address(option::borrow(&source_vault.liquidity_store_account));
             primary_fungible_store::deposit(addr, source);
+            option::destroy_none(source_legacy);
             source_amount
         };
         let timestamp = timestamp::now_seconds();
@@ -850,6 +851,7 @@ module perpetual::pool {
             timestamp,
         );
 
+        let collateral_amount = fungible_asset::amount(&collateral);
         // open position
         let (code, result) =
             positions::open_position<Collateral>(
@@ -857,7 +859,7 @@ module perpetual::pool {
                 &collateral_price,
                 &index_price,
                 option::borrow(&vault.liquidity_store_account),
-                collateral,
+                &mut collateral,
                 collateral_price_threshold,
                 open_amount,
                 reserve_amount,
@@ -879,7 +881,7 @@ module perpetual::pool {
                 collateral_price: agg_price::price_of(&collateral_price),
                 index_price: agg_price::price_of(&index_price),
                 open_amount,
-                collateral_amount: fungible_asset::amount(&collateral),
+                collateral_amount,
                 code,
             };
             return (code, collateral, option::none(), option::some(event))
@@ -1222,6 +1224,7 @@ module perpetual::pool {
         let (to_vault_amount, vault_total) = if (legacy) {
             let amount = coin::value(option::borrow(&to_vault_legacy));
             coin::merge(&mut vault.liquidity_legacy, option::destroy_some(to_vault_legacy));
+            option::destroy_none(to_vault_fa);
             (amount, coin::value(&vault.liquidity_legacy))
         } else {
             let amount = fungible_asset::amount(option::borrow(&to_vault_fa));
@@ -1231,6 +1234,7 @@ module perpetual::pool {
                 liquidity_addr,
                 option::destroy_some(to_vault_fa)
             );
+            option::destroy_none(to_vault_legacy);
             (amount, primary_fungible_store::balance(liquidity_addr, get_metadata<Collateral>()))
         };
         emit(VaultDepositEvent<Collateral>{amount: to_vault_amount});
@@ -1480,7 +1484,7 @@ module perpetual::pool {
             vault.unrealised_reserving_fee_amount,
             reserving_fee_amount,
         );
-        let to_vault_amount = if(vault.legacy) {
+        let _to_vault_amount = if(vault.legacy) {
             let to_vault = option::destroy_some(to_vault_legacy);
             option::destroy_none(to_vault_fa);
             let amount = coin::value(&to_vault);

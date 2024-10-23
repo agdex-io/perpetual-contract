@@ -2,6 +2,10 @@ module perpetual::agg_price {
     use std::option;
     use aptos_std::math64::pow;
     use aptos_framework::coin;
+    use aptos_framework::coin::Coin;
+    use aptos_framework::fungible_asset;
+    use perpetual::type_registry::get_metadata;
+    use perpetual::type_registry;
 
     use pyth::pyth::get_price_unsafe;
     use pyth::i64::{Self as pyth_i64};
@@ -52,10 +56,17 @@ module perpetual::agg_price {
         max_confidence: u64,
         identifier: PriceIdentifier,
     ): AggPriceConfig {
+        let precision = if (type_registry::registered<CoinType>()) {
+            // fa
+            (pow(10, (fungible_asset::decimals(get_metadata<CoinType>()) as u64)))
+        } else {
+            // legacy
+            (pow(10, (coin::decimals<CoinType>() as u64)))
+        };
         AggPriceConfig {
             max_interval,
             max_confidence,
-            precision: pow(10, (coin::decimals<CoinType>() as u64)),
+            precision,
             feeder: identifier,
             second_feeder: option::none<SecondaryFeed>(),
             tolerance: decimal::one()

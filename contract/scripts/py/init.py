@@ -16,7 +16,7 @@ from aptos_sdk.transactions import (
 )
 from aptos_sdk.type_tag import StructTag, TypeTag
 
-contract_address = "0x9acda19cc96ff9a981800f18954485e9436e9b086c095ba6ba9fa8bb0b6f2971"
+contract_address = "0xdc7386d3e8a210b8edf5fabcd4c7baddaa29517269197e45146b02dea4cdbc2f"
 
 class MarketClient(RestClient):
 
@@ -483,7 +483,7 @@ class MarketClient(RestClient):
 #
 async def main():
     sender = Account.load_key(
-        "0x4e483ca2c4eddc2f661c84efb3abe61f0c17f08a5daafa9dde51cd7df8aa8922"
+        "0x1ddb4f77b990de2e0558fcae3e9b1672a188772efd689e45c2e51bcf86b99430"
     )
     NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1"
 
@@ -523,37 +523,37 @@ async def main():
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "SHORT")
     # txn_hash = await rest_client.add_collateral_to_symbol(sender,  "0x6f60af74988c64cd3b7c1e214697e6949db39c061d8d4cf59a7e2bd1b66c8bf0::usdt::USDT", "0x1::aptos_coin::AptosCoin", "LONG")
     # txn_hash = await rest_client.deposit(sender, "0x1::aptos_coin::AptosCoin", 100000000, 0)
-    txn_hash = await rest_client.deposit(sender, "0x938dd1008f738a4e85adbdae7a370665604531d19df2851c89311473404cd378::usdc::USDC", 5000000, 0)
+    # txn_hash = await rest_client.deposit(sender, "0x69c513e5bb8fbbe8f82dab674ad477f760b7dd9920c838a7463682bfe2204a70::usdt::USDT", 500000000000, 0)
     # txn_hash = await rest_client.withdraw(sender, "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdt::USDT", 6000000, 0)
 
     # txn_hash = await rest_client.open_position(
     #     sender,
-    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+    #     "0x69c513e5bb8fbbe8f82dab674ad477f760b7dd9920c838a7463682bfe2204a70::usdt::USDT",
     #     "0x1::aptos_coin::AptosCoin",
     #     "SHORT",
     #     "0x1::aptos_coin::AptosCoin",
     #     1, # trading level
-    #     100000000000, # open amount
-    #     10000000, # reserve amount
-    #     10000000, # collateral amount
+    #     1000000000, # open amount
+    #     1000000000, # reserve amount
+    #     1000000000, # collateral amount
     #     10, # fee amount
     #     908650100000000000, # collateral_price_threshold
-    #     4038650100000000000, #index price threshold
+    #     11038650100000000000, #index price threshold
     #      # limited_index_price
     # )
 
     # txn_hash = await rest_client.decrease_position(
     #     sender,
-    #     "0x36e30e32c62d6c3ff4e3f000885626e18d6deb162a8091ac3af6aad4f3bdfae5::usdc::USDC",
+    #     "0x69c513e5bb8fbbe8f82dab674ad477f760b7dd9920c838a7463682bfe2204a70::usdt::USDT",
     #     "0x1::aptos_coin::AptosCoin",
-    #     "LONG",
+    #     "SHORT",
     #     "0x1::aptos_coin::AptosCoin",
     #     1,
     #     100,
     #     True,
     #     5000000,
     #     908650100000000000,
-    #     4038650100000000000,
+    #     10038650100000000000,
     #     0
     # )
 

@@ -681,7 +681,8 @@ module perpetual::market {
         );
     }
 
-    public entry fun open_position<Collateral, Index, Direction, Fee>(
+    #[randomness]
+    entry fun open_position<Collateral, Index, Direction, Fee>(
         user: &signer,
         trade_level: u8,
         open_amount: u64,
@@ -745,15 +746,16 @@ module perpetual::market {
             };
             let (fee_legacy, fee_fa) = if (type_registry::registered<Fee>()) {
                 // fa
-                let fee = primary_fungible_store::withdraw(user, get_metadata<Fee>(), collateral_amount);
+                let fee = primary_fungible_store::withdraw(user, get_metadata<Fee>(), fee_amount);
                 (option::none<Coin<Fee>>(), option::some(fee))
             } else {
                 // legacy
-                let fee = coin::withdraw<Fee>(user, collateral_amount);
+                let fee = coin::withdraw<Fee>(user, fee_amount);
                 (option::some(fee), option::none<FungibleAsset>())
             };
             let order =
                 orders::new_open_position_order<Collateral, Fee>(
+                    user,
                     timestamp,
                     open_amount,
                     reserve_amount,
@@ -829,7 +831,7 @@ module perpetual::market {
             assert!(code == 0, code);
             //coin::destroy_zero(collateral);
 
-            let (legacy, position, rebate_legacy, rebate_fa, _event) = pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
+            let (_legacy, position, rebate_legacy, rebate_fa, _event) = pool::unwrap_open_position_result<Collateral>(option::destroy_some(result));
 
             // add position into record
             let position_record = borrow_global_mut<PositionRecord<Collateral, Index, Direction>>(@perpetual);
@@ -922,7 +924,8 @@ module perpetual::market {
         }
     }
 
-    public entry fun decrease_position<Collateral, Index, Direction, Fee>(
+    #[randomness]
+    entry fun decrease_position<Collateral, Index, Direction, Fee>(
         user: &signer,
         trade_level: u8,
         fee_amount: u64,
@@ -994,6 +997,7 @@ module perpetual::market {
 
             let order =
                 orders::new_decrease_position_order(
+                    user,
                     timestamp,
                     take_profit,
                     decrease_amount,
@@ -1048,7 +1052,7 @@ module perpetual::market {
             assert!(code == 0, code);
 
             let res = option::destroy_some(result);
-            let (legacy, to_trader_legacy, rebate_legacy, to_trader_fa, rebate_fa, _event) =
+            let (_legacy, to_trader_legacy, rebate_legacy, to_trader_fa, rebate_fa, _event) =
                 pool::unwrap_decrease_position_result<Collateral>(res);
             let out_amount = if (type_registry::registered<Collateral>()) {
                 let out_amount = fungible_asset::amount(option::borrow(&to_trader_fa));
@@ -1362,7 +1366,8 @@ module perpetual::market {
         // positions::destroy_position<Collateral>(position);
     }
 
-    public entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
+    #[randomness]
+    entry fun execute_open_position_order<Collateral, Index, Direction, Fee>(
         executor: &signer,
         owner: address,
         order_num: u64,
@@ -1398,7 +1403,7 @@ module perpetual::market {
                 market.treasury_ratio
             );
         if (code == 0) {
-            let (legacy, position, rebate_legacy, rebate_fa, _event) =
+            let (_legacy, position, rebate_legacy, rebate_fa, _event) =
                 pool::unwrap_open_position_result(option::destroy_some(result));
 
             let position_record =
@@ -1510,7 +1515,7 @@ module perpetual::market {
             if (coin::value(&collateral) != 0) {
                 coin::deposit(owner, collateral);
             } else {
-                coin::destroy_zero(option::destroy_some(collateral_legacy));
+                coin::destroy_zero(collateral);
             };
             option::destroy_none(collateral_fa);
         };
@@ -1582,7 +1587,7 @@ module perpetual::market {
                 let to_trader = option::destroy_some(to_trader_legacy);
                 option::destroy_none(to_trader_fa);
                 let amount = coin::value(&to_trader);
-                coin::deposit(owner, option::destroy_some(to_trader_legacy));
+                coin::deposit(owner, to_trader);
                 amount
             } else {
                 // fa
@@ -1810,7 +1815,7 @@ module perpetual::market {
         let vault_value = pool::vault_value<Collateral>(timestamp::now_seconds());
 
         // withdraw to burner
-        let (legacy, withdraw_legacy, withdraw_fa, fee_value) =
+        let (_legacy, withdraw_legacy, withdraw_fa, fee_value) =
             pool::withdraw<Collateral>(
                 &market.rebase_model,
                 lp_burn_amount,
@@ -1850,7 +1855,7 @@ module perpetual::market {
     }
 
     fun update_pyth_with_funder(user: &signer, vaas: vector<vector<u8>>) {
-        assert!(vector::length(&vaas) > 0 && vector::length(vector::borrow(&vaas, 0)) > 0, EVAAS_EMPTY);
+        // assert!(vector::length(&vaas) > 0 && vector::length(vector::borrow(&vaas, 0)) > 0, EVAAS_EMPTY);
         let pyth_fee = pyth::pyth::get_update_fee(&vaas);
         let fee = coin::withdraw<AptosCoin>(user, pyth_fee);
         pyth::pyth::update_price_feeds(vaas, fee);
