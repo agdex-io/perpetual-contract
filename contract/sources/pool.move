@@ -525,7 +525,7 @@ module perpetual::pool {
             treasury_reserve_value,
             treasury_reserve_amount,
             fee_rate,
-            fee_value: deposit_value,
+            fee_value,
             collateral_price,
         });
 
